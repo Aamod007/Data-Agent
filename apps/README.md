@@ -1,6 +1,6 @@
 # AI-Powered Applications
 
-This repository contains a collection of AI-powered applications that are built using the AI Data Science Team. 
+This repository contains a collection of AI-powered applications that are built using the Data Agents. 
 
 More applications are coming soon! Stay tuned!
 

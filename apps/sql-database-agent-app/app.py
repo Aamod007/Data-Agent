@@ -1,11 +1,9 @@
-# BUSINESS SCIENCE
 # SQL Database Agent App
 # -----------------------
 
 # This app is designed to help you query your SQL database and return data frames that you can interactively inspect and download.
 
 # Imports
-# !pip install git+https://github.com/business-science/ai-data-science-team.git --upgrade
 
 from openai import OpenAI
 

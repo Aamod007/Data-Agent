@@ -25,6 +25,12 @@ from langchain_community.chat_message_histories import StreamlitChatMessageHisto
 from langchain_openai import ChatOpenAI
 
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+try:
     from langchain_ollama import ChatOllama  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     ChatOllama = None
@@ -1275,6 +1281,10 @@ def _pipeline_studio_load_project(*, project_dir: str, rehydrate: bool = True) -
                             df = pd.read_pickle(abs_path)
                         elif fmt == "csv":
                             df = pd.read_csv(abs_path)
+                        elif fmt in ("json", "jsonl"):
+                            df = pd.read_json(abs_path)
+                        elif fmt in ("excel", "xlsx", "xls"):
+                            df = pd.read_excel(abs_path)
                     except Exception:
                         df = None
                 else:
@@ -2918,6 +2928,10 @@ def _maybe_restore_pipeline_studio_datasets() -> None:
                     df = pd.read_parquet(abs_path)
                 elif fmt == "csv":
                     df = pd.read_csv(abs_path)
+                elif fmt in ("json", "jsonl"):
+                    df = pd.read_json(abs_path)
+                elif fmt in ("excel", "xlsx", "xls"):
+                    df = pd.read_excel(abs_path)
                 else:
                     df = pd.read_pickle(abs_path)
             except Exception:
@@ -4434,12 +4448,24 @@ with st.sidebar:
     st.divider()
 
     st.header("LLM")
+    provider_options = ["OpenAI", "OpenRouter", "LM Studio", "Ollama"]
+    saved_provider = st.session_state.get("llm_provider")
+    default_provider_idx = 0
+    if saved_provider in provider_options:
+        default_provider_idx = provider_options.index(saved_provider)
+    elif os.environ.get("OPENROUTER_API_KEY") or st.session_state.get("OPENROUTER_API_KEY"):
+        # Default to OpenRouter if configured
+        default_provider_idx = 1
+    elif not (st.session_state.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")):
+        # Otherwise if no OpenAI key, default to local LM Studio
+        default_provider_idx = 2
+
     llm_provider = st.selectbox(
         "Provider",
-        ["OpenAI", "Ollama"],
-        index=0,
+        provider_options,
+        index=default_provider_idx,
         key="llm_provider",
-        help="Choose OpenAI (cloud) or Ollama (local).",
+        help="Choose OpenAI (cloud), OpenRouter (cloud API gateway), LM Studio (local OpenAI-compatible), or Ollama (local).",
     )
 
     ollama_base_url = None
@@ -4464,7 +4490,7 @@ with st.sidebar:
                 st.error(f"Invalid API Key: {e}")
         else:
             st.info(
-                "Please enter your OpenAI API key to proceed (or switch to Ollama)."
+                "Please enter your OpenAI API key to proceed (or switch to OpenRouter / LM Studio / Ollama)."
             )
             st.stop()
 
@@ -4482,6 +4508,185 @@ with st.sidebar:
             ],
             key="openai_model_choice",
         )
+    elif llm_provider == "OpenRouter":
+        default_openrouter_key = (
+            st.session_state.get("OPENROUTER_API_KEY")
+            or os.environ.get("OPENROUTER_API_KEY")
+            or ""
+        )
+        openrouter_key_input = st.text_input(
+            "OpenRouter API key",
+            type="password",
+            value=default_openrouter_key,
+            key="openrouter_api_key_input",
+            help="Your OpenRouter API key.",
+        )
+        openrouter_key = (openrouter_key_input or "").strip()
+        st.session_state["OPENROUTER_API_KEY"] = openrouter_key
+
+        if not openrouter_key:
+            st.info("Please enter your OpenRouter API key to proceed.")
+            st.stop()
+
+        popular_openrouter_models = [
+            "inclusionai/ling-3.0-flash-vl:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "deepseek/deepseek-r1:free",
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "google/gemini-2.0-flash-exp:free",
+            "qwen/qwen-2.5-72b-instruct:free",
+            "mistralai/mistral-small-24b-instruct-2501:free",
+            "openai/gpt-4o-mini",
+            "Custom (enter below)",
+        ]
+        saved_openrouter_model = (
+            st.session_state.get("openrouter_model")
+            or os.environ.get("OPENROUTER_MODEL")
+            or "inclusionai/ling-3.0-flash-vl:free"
+        )
+        default_model_idx = (
+            popular_openrouter_models.index(saved_openrouter_model)
+            if saved_openrouter_model in popular_openrouter_models
+            else 0
+        )
+        selected_model_option = st.selectbox(
+            "Model selection",
+            options=popular_openrouter_models,
+            index=default_model_idx,
+            key="openrouter_model_select",
+            help="Choose a recommended model or specify a custom model ID.",
+        )
+        if selected_model_option == "Custom (enter below)":
+            openrouter_model = st.text_input(
+                "OpenRouter model name",
+                value=saved_openrouter_model
+                if saved_openrouter_model not in popular_openrouter_models
+                else "inclusionai/ling-3.0-flash-vl:free",
+                key="openrouter_custom_model_input",
+                help="E.g., `inclusionai/ling-3.0-flash-vl:free` or any model on openrouter.ai.",
+            ).strip()
+        else:
+            openrouter_model = selected_model_option
+
+        st.session_state["openrouter_model"] = openrouter_model
+        model_choice = openrouter_model
+
+        if st.button(
+            "Check OpenRouter connection", width="stretch", key="openrouter_check"
+        ):
+            try:
+                from urllib.request import Request, urlopen
+                import json as _json
+
+                req = Request(
+                    "https://openrouter.ai/api/v1/auth/key",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_key}",
+                        "Accept": "application/json",
+                    },
+                )
+                with urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode("utf-8", errors="replace"))
+                    info = data.get("data", {})
+                    label = info.get("label") or "Active"
+                    limit = info.get("limit")
+                    usage = info.get("usage")
+                    usage_info = f" (Usage: {usage}/{limit})" if limit is not None else ""
+                    st.success(f"Connected to OpenRouter! Key: {label}{usage_info}")
+            except Exception as e:
+                st.error(f"Could not connect to OpenRouter: {e}")
+
+        st.caption("Powered by OpenRouter.ai with OpenAI-compatible API.")
+    elif llm_provider == "LM Studio":
+        default_lm_studio_url = (
+            st.session_state.get("lm_studio_base_url") or "http://127.0.0.1:1234/v1"
+        )
+        lm_studio_base_url = st.text_input(
+            "LM Studio base URL",
+            value=default_lm_studio_url,
+            key="lm_studio_base_url_input",
+            help="Usually `http://127.0.0.1:1234/v1`.",
+        ).strip()
+        st.session_state["lm_studio_base_url"] = lm_studio_base_url
+
+        discovered_models: list[str] = []
+        try:
+            from urllib.request import Request, urlopen
+            import json as _json
+
+            m_url = f"{lm_studio_base_url.rstrip('/')}/models"
+            req = Request(m_url, headers={"Accept": "application/json"})
+            with urlopen(req, timeout=1.5) as resp:
+                data = _json.loads(resp.read().decode("utf-8", errors="replace"))
+                discovered_models = [
+                    m.get("id")
+                    for m in (data.get("data") or [])
+                    if isinstance(m, dict) and isinstance(m.get("id"), str)
+                ]
+        except Exception:
+            pass
+
+        saved_lm_model = (
+            st.session_state.get("lm_studio_model")
+            or "inclusionai/ling-3.0-flash-vl:free"
+        )
+        options = list(discovered_models) if discovered_models else []
+        for preset in ["inclusionai/ling-3.0-flash-vl:free", "qwen/qwen3-vl-8b"]:
+            if preset not in options:
+                options.append(preset)
+        if "Custom (enter below)" not in options:
+            options.append("Custom (enter below)")
+
+        if saved_lm_model in options:
+            model_idx = options.index(saved_lm_model)
+        else:
+            options.insert(0, saved_lm_model)
+            model_idx = 0
+
+        selected_lm_option = st.selectbox(
+            "LM Studio model",
+            options=options,
+            index=model_idx,
+            key="lm_studio_model_select",
+            help="Select model loaded in LM Studio or choose Custom.",
+        )
+        if selected_lm_option == "Custom (enter below)":
+            lm_studio_model = st.text_input(
+                "LM Studio model name",
+                value=saved_lm_model if saved_lm_model not in options else "inclusionai/ling-3.0-flash-vl:free",
+                key="lm_studio_custom_model_input",
+                help="Enter model identifier (e.g. inclusionai/ling-3.0-flash-vl:free).",
+            ).strip()
+        else:
+            lm_studio_model = selected_lm_option
+
+        st.session_state["lm_studio_model"] = lm_studio_model
+        model_choice = lm_studio_model
+
+        if st.button(
+            "Check LM Studio connection", width="stretch", key="lm_studio_check"
+        ):
+            try:
+                from urllib.request import Request, urlopen
+                import json as _json
+
+                url = f"{lm_studio_base_url.rstrip('/')}/models"
+                req = Request(url, headers={"Accept": "application/json"})
+                with urlopen(req, timeout=3) as resp:
+                    payload = _json.loads(resp.read().decode("utf-8", errors="replace"))
+                models = [
+                    m.get("id")
+                    for m in (payload.get("data") or [])
+                    if isinstance(m, dict) and isinstance(m.get("id"), str)
+                ]
+                if models:
+                    st.success(f"Connected to LM Studio! Model(s): {', '.join(models)}")
+                else:
+                    st.warning("Connected to LM Studio, but no models found.")
+            except Exception as e:
+                st.error(f"Could not connect to LM Studio at `{lm_studio_base_url}`: {e}")
+
+        st.caption("Running locally at `http://127.0.0.1:1234` with OpenAI-compatible API.")
     else:
         if ChatOllama is None:
             st.error(
@@ -4560,7 +4765,10 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**Data options**")
     use_sample = st.checkbox("Load sample Telco churn data", value=False)
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded_file = st.file_uploader(
+        "Upload dataset (CSV, Parquet, JSON, Excel)",
+        type=["csv", "parquet", "json", "jsonl", "xlsx", "xls", "tsv"],
+    )
     preview_rows = st.number_input("Preview rows", 1, 20, 5)
 
     st.markdown("**Dataset selection**")
@@ -4886,7 +5094,15 @@ with st.sidebar:
 # LLM credentials are only required when running chat (Pipeline Studio + previews should still work).
 llm_provider_selected = st.session_state.get("llm_provider") or "OpenAI"
 resolved_api_key = (st.session_state.get("OPENAI_API_KEY") or "").strip() or None
+resolved_openrouter_api_key = (
+    st.session_state.get("OPENROUTER_API_KEY")
+    or os.environ.get("OPENROUTER_API_KEY")
+    or ""
+).strip() or None
 resolved_ollama_model = (st.session_state.get("ollama_model") or "").strip() or None
+resolved_lm_studio_model = (
+    st.session_state.get("lm_studio_model") or "qwen/qwen3-vl-8b"
+).strip() or None
 
 
 def build_team(
@@ -4902,6 +5118,8 @@ def build_team(
     mlflow_artifact_root: str | None,
     mlflow_experiment_name: str,
     debug_mode: bool = False,
+    lm_studio_base_url: str | None = None,
+    openrouter_api_key: str | None = None,
 ):
     llm_provider = (llm_provider or "OpenAI").strip()
     if llm_provider.lower() == "ollama":
@@ -4921,6 +5139,33 @@ def build_team(
             except Exception:
                 kwargs["base_url"] = base_url
         llm = ChatOllama(**kwargs)
+    elif llm_provider.lower() == "lm studio":
+        base_url = (
+            lm_studio_base_url
+            or st.session_state.get("lm_studio_base_url")
+            or "http://127.0.0.1:1234/v1"
+        ).strip()
+        llm = ChatOpenAI(
+            model=model_name or "qwen/qwen3-vl-8b",
+            base_url=base_url,
+            api_key="lm-studio",
+        )
+    elif llm_provider.lower() == "openrouter":
+        api_key = (
+            openrouter_api_key
+            or st.session_state.get("OPENROUTER_API_KEY")
+            or os.environ.get("OPENROUTER_API_KEY")
+            or ""
+        ).strip()
+        llm = ChatOpenAI(
+            model=model_name or "nvidia/nemotron-3-ultra-550b-a55b:free",
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+            default_headers={
+                "HTTP-Referer": "http://localhost:8501",
+                "X-Title": "AI Pipeline Studio",
+            },
+        )
     else:
 
         def _openai_requires_responses(model: str | None) -> bool:
@@ -5018,9 +5263,74 @@ if not msgs.messages:
     msgs.add_ai_message("How can the data science team help today?")
 
 
+def _df_to_parquet_bytes(df: pd.DataFrame) -> bytes | None:
+    """Safely converts a DataFrame to Parquet bytes, with fallback for mixed/object types."""
+    import io
+
+    buf = io.BytesIO()
+    try:
+        df.to_parquet(buf, index=False)
+        return buf.getvalue()
+    except Exception:
+        try:
+            df_copy = df.copy()
+            for col in df_copy.select_dtypes(include=["object"]).columns:
+                df_copy[col] = df_copy[col].astype(str)
+            buf = io.BytesIO()
+            df_copy.to_parquet(buf, index=False)
+            return buf.getvalue()
+        except Exception:
+            return None
+
+
+def _load_df_from_file(file_path: str) -> pd.DataFrame:
+    """
+    Loads tabular data from various supported formats: CSV, TSV, Parquet, JSON, Excel.
+    """
+    path_lower = file_path.lower()
+    if path_lower.endswith((".csv", ".csv.gz")):
+        return pd.read_csv(file_path)
+    elif path_lower.endswith((".tsv", ".tsv.gz")):
+        return pd.read_csv(file_path, sep="\t")
+    elif path_lower.endswith(".parquet"):
+        return pd.read_parquet(file_path)
+    elif path_lower.endswith((".xlsx", ".xls")):
+        return pd.read_excel(file_path)
+    elif path_lower.endswith((".jsonl", ".ndjson")):
+        return pd.read_json(file_path, lines=True)
+    elif path_lower.endswith(".json"):
+        try:
+            return pd.read_json(file_path)
+        except ValueError:
+            try:
+                return pd.read_json(file_path, lines=True)
+            except Exception:
+                import json
+
+                with open(file_path, "r", encoding="utf-8", errors="replace") as jf:
+                    data = json.load(jf)
+                if isinstance(data, list):
+                    return pd.json_normalize(data)
+                elif isinstance(data, dict):
+                    for k in ("data", "records", "rows", "items", "results"):
+                        if k in data and isinstance(data[k], list):
+                            return pd.json_normalize(data[k])
+                    return pd.json_normalize(data)
+                raise ValueError(
+                    f"Could not parse JSON content in {file_path} into DataFrame."
+                )
+    else:
+        from ai_data_science_team.tools.data_loader import auto_load_file
+
+        res = auto_load_file(file_path)
+        if isinstance(res, pd.DataFrame):
+            return res
+        raise ValueError(f"Unsupported file format or loading error: {res}")
+
+
 def get_input_data():
     """
-    Resolve data_raw based on user selections: uploaded CSV or sample dataset.
+    Resolve data_raw based on user selections: uploaded file (CSV, Parquet, JSON, Excel) or sample dataset.
     Returns tuple (data_raw_dict, preview_df_or_None, provenance_dict_or_None).
     """
     df = None
@@ -5042,7 +5352,7 @@ def get_input_data():
                 with open(saved_path, "wb") as f:
                     f.write(raw_bytes)
 
-            df = pd.read_csv(saved_path)
+            df = _load_df_from_file(saved_path)
             provenance = {
                 "source_type": "file",
                 "source": saved_path,
@@ -5057,7 +5367,7 @@ def get_input_data():
         if os.path.exists(sample_path):
             try:
                 abs_path = os.path.abspath(sample_path)
-                df = pd.read_csv(abs_path)
+                df = _load_df_from_file(abs_path)
                 provenance = {
                     "source_type": "file",
                     "source": abs_path,
@@ -5167,6 +5477,45 @@ def get_input_data():
 
         st.markdown("**Data preview**")
         st.dataframe(df.head(preview_rows))
+        try:
+            stem_name = (
+                Path(provenance.get("original_name", "dataset")).stem
+                if isinstance(provenance, dict) and provenance.get("original_name")
+                else "dataset"
+            )
+            with st.expander("⬇️ Export / Download dataset", expanded=False):
+                c_dl_csv, c_dl_pq, c_dl_json = st.columns(3)
+                with c_dl_csv:
+                    st.download_button(
+                        "Download CSV",
+                        data=df.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{stem_name}.csv",
+                        mime="text/csv",
+                        key="download_preview_csv",
+                        width="stretch",
+                    )
+                with c_dl_pq:
+                    pq_data = _df_to_parquet_bytes(df)
+                    if pq_data is not None:
+                        st.download_button(
+                            "Download Parquet",
+                            data=pq_data,
+                            file_name=f"{stem_name}.parquet",
+                            mime="application/octet-stream",
+                            key="download_preview_parquet",
+                            width="stretch",
+                        )
+                with c_dl_json:
+                    st.download_button(
+                        "Download JSON",
+                        data=df.to_json(orient="records", indent=2).encode("utf-8"),
+                        file_name=f"{stem_name}.json",
+                        mime="application/json",
+                        key="download_preview_json",
+                        width="stretch",
+                    )
+        except Exception:
+            pass
         return df.to_dict(), df.head(preview_rows), provenance
 
     return None, None, None
@@ -5423,21 +5772,59 @@ def _render_analysis_detail(detail: dict, key_suffix: str) -> None:
         wrangled_df = detail.get("data_wrangled_df")
         cleaned_df = detail.get("data_cleaned_df")
         feature_df = detail.get("feature_data_df")
+        def _render_stage_df(stage_df, label: str, stage_key: str):
+            st.markdown(f"**{label} Preview**")
+            st.dataframe(stage_df)
+            try:
+                with st.expander(
+                    f"⬇️ Export {label.lower()} (CSV, Parquet, JSON)", expanded=False
+                ):
+                    c1, c2, c3 = st.columns(3)
+                    slug = label.lower().replace(" ", "_").replace("-", "_")
+                    with c1:
+                        st.download_button(
+                            "Download CSV",
+                            data=stage_df.to_csv(index=False).encode("utf-8"),
+                            file_name=f"{slug}.csv",
+                            mime="text/csv",
+                            key=f"dl_{stage_key}_{key_suffix}_csv",
+                            width="stretch",
+                        )
+                    with c2:
+                        pq = _df_to_parquet_bytes(stage_df)
+                        if pq is not None:
+                            st.download_button(
+                                "Download Parquet",
+                                data=pq,
+                                file_name=f"{slug}.parquet",
+                                mime="application/octet-stream",
+                                key=f"dl_{stage_key}_{key_suffix}_pq",
+                                width="stretch",
+                            )
+                    with c3:
+                        st.download_button(
+                            "Download JSON",
+                            data=stage_df.to_json(orient="records", indent=2).encode(
+                                "utf-8"
+                            ),
+                            file_name=f"{slug}.json",
+                            mime="application/json",
+                            key=f"dl_{stage_key}_{key_suffix}_json",
+                            width="stretch",
+                        )
+            except Exception:
+                pass
+
         if raw_df is not None:
-            st.markdown("**Raw Preview**")
-            st.dataframe(raw_df)
+            _render_stage_df(raw_df, "Raw", "raw")
         if sql_df is not None:
-            st.markdown("**SQL Preview**")
-            st.dataframe(sql_df)
+            _render_stage_df(sql_df, "SQL", "sql")
         if wrangled_df is not None:
-            st.markdown("**Wrangled Preview**")
-            st.dataframe(wrangled_df)
+            _render_stage_df(wrangled_df, "Wrangled", "wrangled")
         if cleaned_df is not None:
-            st.markdown("**Cleaned Preview**")
-            st.dataframe(cleaned_df)
+            _render_stage_df(cleaned_df, "Cleaned", "cleaned")
         if feature_df is not None:
-            st.markdown("**Feature-engineered Preview**")
-            st.dataframe(feature_df)
+            _render_stage_df(feature_df, "Feature-engineered", "features")
         if (
             raw_df is None
             and sql_df is None
@@ -5879,6 +6266,16 @@ if prompt:
                 "OpenAI API key is required and must be valid. Enter it in the sidebar."
             )
             st.stop()
+    elif llm_provider_selected == "OpenRouter":
+        if not resolved_openrouter_api_key:
+            st.error(
+                "OpenRouter API key is required. Enter it in the sidebar."
+            )
+            st.stop()
+    elif llm_provider_selected == "LM Studio":
+        if not resolved_lm_studio_model:
+            st.error("LM Studio model name is required. Enter it in the sidebar.")
+            st.stop()
     else:
         if not resolved_ollama_model:
             st.error("Ollama model name is required. Enter it in the sidebar.")
@@ -5961,6 +6358,8 @@ if prompt:
             st.session_state.get("mlflow_artifact_root"),
             st.session_state.get("mlflow_experiment_name", "H2O AutoML"),
             debug_mode=bool(st.session_state.get("debug_mode", False)),
+            lm_studio_base_url=st.session_state.get("lm_studio_base_url"),
+            openrouter_api_key=resolved_openrouter_api_key if llm_provider_selected == "OpenRouter" else None,
         )
         try:
             # If LangGraph memory is enabled, pass only the new user message.
@@ -12245,6 +12644,47 @@ def _render_pipeline_studio() -> None:
                             key="pipeline_studio_preview_rows",
                         )
                         st.dataframe(df_sel.head(int(rows)), width="stretch")
+                        try:
+                            node_label_slug = re.sub(
+                                r"[^a-zA-Z0-9_-]", "_", str(selected_node_id or "dataset")
+                            )
+                            with st.expander(
+                                "⬇️ Export dataset (CSV, Parquet, JSON)", expanded=False
+                            ):
+                                c_exp1, c_exp2, c_exp3 = st.columns(3)
+                                with c_exp1:
+                                    st.download_button(
+                                        "Download CSV",
+                                        data=df_sel.to_csv(index=False).encode("utf-8"),
+                                        file_name=f"{node_label_slug}.csv",
+                                        mime="text/csv",
+                                        key=f"pipeline_studio_dl_csv_{selected_node_id}",
+                                        width="stretch",
+                                    )
+                                with c_exp2:
+                                    pq_b = _df_to_parquet_bytes(df_sel)
+                                    if pq_b is not None:
+                                        st.download_button(
+                                            "Download Parquet",
+                                            data=pq_b,
+                                            file_name=f"{node_label_slug}.parquet",
+                                            mime="application/octet-stream",
+                                            key=f"pipeline_studio_dl_parquet_{selected_node_id}",
+                                            width="stretch",
+                                        )
+                                with c_exp3:
+                                    st.download_button(
+                                        "Download JSON",
+                                        data=df_sel.to_json(
+                                            orient="records", indent=2
+                                        ).encode("utf-8"),
+                                        file_name=f"{node_label_slug}.json",
+                                        mime="application/json",
+                                        key=f"pipeline_studio_dl_json_{selected_node_id}",
+                                        width="stretch",
+                                    )
+                        except Exception:
+                            pass
                         try:
                             cols = (
                                 entry.get("columns")

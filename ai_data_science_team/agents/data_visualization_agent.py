@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Data Visualization Agent
+# Agents: Data Visualization Agent
 
 
 # Libraries
@@ -133,7 +130,7 @@ class DataVisualizationAgent(BaseAgent):
         human_in_the_loop=True
     )
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     data_visualization_agent.invoke_agent(
         user_instructions="Generate a scatter plot of age vs. total charges with a trend line.",
@@ -576,7 +573,7 @@ def make_data_visualization_agent(
 
     data_visualization_agent = make_data_visualization_agent(llm)
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     response = data_visualization_agent.invoke({
         "user_instructions": "Generate a scatter plot of tenure vs. total charges with a trend line.",
@@ -770,11 +767,11 @@ Use an appropriate chart type based on column types (categorical vs numeric). De
         if not isinstance(error_text, str) or not error_text:
             return []
         missing = set()
-        for match in re.findall(r"KeyError:\\s*['\\\"]([^'\\\"]+)['\\\"]", error_text):
+        for match in re.findall(r"KeyError:\s*['\"]([^'\"]+)['\"]", error_text):
             missing.add(match)
-        for match in re.findall(r"\\['([^']+)'\\]\\s+not in index", error_text):
+        for match in re.findall(r"\[['\"]([^'\"]+)['\"]\]\s+not in index", error_text):
             missing.add(match)
-        list_match = re.search(r"None of \\[(.*)\\] are in the \\[columns\\]", error_text)
+        list_match = re.search(r"None of \[(.*)\] are in the \[columns\]", error_text)
         if list_match:
             raw = list_match.group(1)
             for col in re.findall(r"'([^']+)'", raw):
@@ -811,7 +808,7 @@ Use an appropriate chart type based on column types (categorical vs numeric). De
             if not isinstance(old, str) or not isinstance(new, str):
                 continue
             patched = re.sub(rf"'{re.escape(old)}'", f"'{new}'", patched)
-            patched = re.sub(rf"\\\"{re.escape(old)}\\\"", f'\"{new}\"', patched)
+            patched = re.sub(rf'"{re.escape(old)}"', f'"{new}"', patched)
         return patched, patched != code
 
     def _build_fallback_chart(df: pd.DataFrame, profile: dict) -> tuple[dict | None, str | None]:
@@ -1214,14 +1211,14 @@ Use an appropriate chart type based on column types (categorical vs numeric). De
                         import re
 
                         def _has_word(word: str) -> bool:
-                            return re.search(rf"\\b{re.escape(word)}s?\\b", req) is not None
+                            return re.search(rf"\b{re.escape(word)}s?\b", req) is not None
 
                         expected = set()
                         if _has_word("violin"):
                             expected.add("violin")
                         if _has_word("box") or "boxplot" in req:
                             expected.add("box")
-                        if re.search(r"\\bhist(ogram)?\\b", req):
+                        if re.search(r"\bhist(ogram)?\b", req):
                             expected.add("histogram")
                         if _has_word("scatter"):
                             expected.add("scatter")

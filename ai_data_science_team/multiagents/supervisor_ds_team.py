@@ -332,18 +332,25 @@ Examples:
         return {"next": "FINISH"}
 
     # Router chain:
-    # - For OpenAI models: use function-calling for high-precision routing.
-    # - For other chat models (e.g., Ollama): fall back to strict text parsing.
-    if isinstance(llm, ChatOpenAI):
-        supervisor_chain = (
-            prompt
-            | llm.bind(functions=[function_def], function_call={"name": "route"})
-            | JsonOutputFunctionsParser()
-        )
+    # - For cloud OpenAI models: use function-calling for high-precision routing, with fallback to text.
+    # - For custom/local OpenAI models (e.g., LM Studio) and other chat models: use text parsing.
+    base_url = str(getattr(llm, "openai_api_base", "") or "")
+    is_custom_openai = bool(base_url and "api.openai.com" not in base_url)
+    text_chain = (
+        prompt | llm | StrOutputParser() | RunnableLambda(_parse_router_output)
+    )
+    if isinstance(llm, ChatOpenAI) and not is_custom_openai:
+        try:
+            fn_chain = (
+                prompt
+                | llm.bind(functions=[function_def], function_call={"name": "route"})
+                | JsonOutputFunctionsParser()
+            )
+            supervisor_chain = fn_chain.with_fallbacks([text_chain])
+        except Exception:
+            supervisor_chain = text_chain
     else:
-        supervisor_chain = (
-            prompt | llm | StrOutputParser() | RunnableLambda(_parse_router_output)
-        )
+        supervisor_chain = text_chain
 
     def _clean_messages(msgs: Sequence[BaseMessage]) -> Sequence[BaseMessage]:
         """
@@ -452,8 +459,8 @@ Examples:
             or standardize_column_names
         )
         wants_eda = has(
-            "describe", "eda", "summary", "correlation", "sweetviz", "missingness"
-        )
+            "describe", "eda", "summary", "sweetviz", "missingness"
+        ) or (has("correlation") and not wants_viz)
         # Feature engineering is often referred to as "features", but "feature-engineered data"
         # can also be a *reference* to an existing dataset. Be conservative: require an action signal.
         feature_action = has(
@@ -551,6 +558,7 @@ Examples:
         mentions_file = (
             (".csv" in last_human)
             or (".parquet" in last_human)
+            or (".json" in last_human)
             or (".xlsx" in last_human)
             or ("file" in last_human)
         )
@@ -1316,24 +1324,8 @@ Examples:
                     # Prevent infinite loops: don't attempt the same step twice within one user request
                     # unless it was actually completed.
                     if attempted_steps.get(step) and not handled_steps.get(step):
-                        print(f"  step '{step}' already attempted -> FINISH")
-                        return {
-                            **(
-                                {"messages": planner_messages}
-                                if planner_messages
-                                else {}
-                            ),
-                            "next": "FINISH",
-                            "active_data_key": active_data_key,
-                            "datasets": datasets,
-                            "active_dataset_id": active_dataset_id,
-                            "handled_request_id": handled_request_id,
-                            "handled_steps": handled_steps,
-                            "attempted_steps": attempted_steps,
-                            "workflow_plan_request_id": state_plan_req,
-                            "workflow_plan": state_plan,
-                            "target_variable": planned_target,
-                        }
+                        print(f"  step '{step}' already attempted -> continue")
+                        continue
 
                     # Guard data-dependent steps.
                     if (
@@ -2648,19 +2640,33 @@ Examples:
                             rows.append({"filename": str(v)})
 
                 last_human = _get_last_human(before_msgs).lower()
-                wants_csv_only = "csv" in last_human and (
-                    "list" in last_human or "files" in last_human
-                )
-                if wants_csv_only and rows:
+                is_list_query = "list" in last_human or "files" in last_human or "show" in last_human
+                target_ext = None
+                ext_label = None
+                if is_list_query:
+                    if "parquet" in last_human:
+                        target_ext = [".parquet"]
+                        ext_label = "Parquet"
+                    elif "json" in last_human:
+                        target_ext = [".json", ".jsonl", ".ndjson"]
+                        ext_label = "JSON"
+                    elif "csv" in last_human:
+                        target_ext = [".csv", ".csv.gz"]
+                        ext_label = "CSV"
+                    elif "excel" in last_human or "xlsx" in last_human or "xls" in last_human:
+                        target_ext = [".xlsx", ".xls"]
+                        ext_label = "Excel"
+
+                if target_ext and rows:
                     rows = [
                         r
                         for r in rows
-                        if str(r.get("filename", "")).lower().endswith(".csv")
+                        if any(str(r.get("filename", "")).lower().endswith(ext) for ext in target_ext)
                     ]
                     names = [r.get("filename") for r in rows if r.get("filename")]
                     if not rows:
                         summary_msg = AIMessage(
-                            content="No CSV files found in that directory.",
+                            content=f"No {ext_label} files found in that directory.",
                             name="data_loader_agent",
                         )
                         dir_listing = None

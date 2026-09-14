@@ -1,4 +1,4 @@
-from typing_extensions import Annotated, Dict, Tuple, Union
+from typing_extensions import Annotated, Dict, Tuple, Union, Optional
 
 import os
 import tempfile
@@ -112,8 +112,9 @@ def visualize_missing(
     try:
         import missingno as msno  # Ensure missingno is installed
     except ImportError:
-        raise ImportError(
-            "Please install the 'missingno' package to use this tool. pip install missingno"
+        return (
+            "The 'missingno' package is not installed. Please install it using `pip install missingno` to visualize missing data.",
+            {"error": "missingno not installed"},
         )
 
     import pandas as pd
@@ -194,8 +195,9 @@ def generate_correlation_funnel(
     try:
         import pytimetk as tk
     except ImportError:
-        raise ImportError(
-            "Please install the 'pytimetk' package to use this tool. pip install pytimetk"
+        return (
+            "The 'pytimetk' package is not installed. Please install it using `pip install pytimetk` to use correlation funnel analysis, or choose another EDA tool like describe_dataset or generate_sweetviz_report.",
+            {"error": "pytimetk not installed"},
         )
     import pandas as pd
     import base64
@@ -283,7 +285,7 @@ def generate_correlation_funnel(
 @tool(response_format="content_and_artifact")
 def generate_sweetviz_report(
     data_raw: Annotated[dict, InjectedState("data_raw")],
-    target: str = None,
+    target: Optional[str] = None,
     report_name: str = "sweetviz_report.html",
     report_directory: str = None,  # <-- Default to None
     open_browser: bool = False,
@@ -350,6 +352,17 @@ def generate_sweetviz_report(
     if not hasattr(np, "VisibleDeprecationWarning"):
         # Provide a compatible placeholder to avoid AttributeError inside Sweetviz.
         np.VisibleDeprecationWarning = DeprecationWarning
+
+    # Sanitize target feature (handle 'null', 'None', '', or non-existent column)
+    if target in (None, "None", "null", "NULL", "none", ""):
+        target = None
+    elif target not in df.columns:
+        col_match = [c for c in df.columns if str(c).lower() == str(target).lower()]
+        if col_match:
+            target = col_match[0]
+        else:
+            print(f"    * Target '{target}' not found in DataFrame columns. Proceeding with un-targeted EDA.")
+            target = None
 
     visible_dep = getattr(np, "VisibleDeprecationWarning", DeprecationWarning)
     with warnings.catch_warnings():
@@ -418,8 +431,9 @@ def generate_dtale_report(
     try:
         import dtale
     except ImportError:
-        raise ImportError(
-            "Please install the 'dtale' package to use this tool. Run: pip install dtale"
+        return (
+            "The 'dtale' package is not installed. Please install it using `pip install dtale` to use dtale reports.",
+            {"error": "dtale not installed"},
         )
 
     import pandas as pd
@@ -428,6 +442,7 @@ def generate_dtale_report(
 
     # Create the dtale report
     d = dtale.show(df, host=host, port=port, open_browser=open_browser)
+
 
     content = f"Dtale report generated and available at: {d.main_url()}"
     artifact = {"dtale_url": d.main_url()}

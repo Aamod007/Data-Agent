@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Model Evaluation Agent
+# Agents: Model Evaluation Agent
 
 from __future__ import annotations
 

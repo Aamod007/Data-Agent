@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Data Wrangling Agent
+# Agents: Data Wrangling Agent
 
 # Libraries
 from typing_extensions import TypedDict, Annotated, Sequence, Literal, Union, Optional
@@ -143,7 +140,7 @@ class DataWranglingAgent(BaseAgent):
         human_in_the_loop=True
     )
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     data_wrangling_agent.invoke_agent(
         user_instructions="Group by 'gender' and compute mean of 'tenure'.",

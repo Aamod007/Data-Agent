@@ -1,11 +1,9 @@
-# BUSINESS SCIENCE
 # Pandas Data Analyst App
 # -----------------------
 
 # This app is designed to help you analyze data and create data visualizations from natural language requests.
 
 # Imports
-# !pip install git+https://github.com/business-science/ai-data-science-team.git --upgrade
 
 from openai import OpenAI
 
@@ -40,7 +38,7 @@ st.set_page_config(
 st.title(TITLE)
 
 st.markdown("""
-Welcome to the Pandas Data Analyst AI. Upload a CSV or Excel file and ask questions about the data.  
+Welcome to the Pandas Data Analyst AI. Upload a CSV, Parquet, JSON, or Excel file and ask questions about the data.  
 The AI agent will analyze your dataset and return either data tables or interactive charts.
 """)
 
@@ -97,23 +95,44 @@ llm = ChatOpenAI(model=model_option, api_key=st.session_state["OPENAI_API_KEY"])
 # ---------------------------
 
 st.markdown("""
-Upload a CSV or Excel file and ask questions about your data.  
+Upload a CSV, Parquet, JSON, or Excel file and ask questions about your data.  
 The AI agent will analyze your dataset and return either data tables or interactive charts.
 """)
 
 uploaded_file = st.file_uploader(
-    "Choose a CSV or Excel file", type=["csv", "xlsx", "xls"]
+    "Choose a CSV, Parquet, JSON, or Excel file",
+    type=["csv", "parquet", "json", "jsonl", "xlsx", "xls", "tsv"],
 )
 if uploaded_file is not None:
-    if uploaded_file.name.endswith(".csv"):
+    fn_lower = uploaded_file.name.lower()
+    if fn_lower.endswith((".csv", ".csv.gz")):
         df = pd.read_csv(uploaded_file)
+    elif fn_lower.endswith((".tsv", ".tsv.gz")):
+        df = pd.read_csv(uploaded_file, sep="\t")
+    elif fn_lower.endswith(".parquet"):
+        df = pd.read_parquet(uploaded_file)
+    elif fn_lower.endswith((".jsonl", ".ndjson")):
+        df = pd.read_json(uploaded_file, lines=True)
+    elif fn_lower.endswith(".json"):
+        try:
+            df = pd.read_json(uploaded_file)
+        except Exception:
+            try:
+                uploaded_file.seek(0)
+                df = pd.read_json(uploaded_file, lines=True)
+            except Exception:
+                import json
+
+                uploaded_file.seek(0)
+                data = json.load(uploaded_file)
+                df = pd.json_normalize(data)
     else:
         df = pd.read_excel(uploaded_file)
 
     st.subheader("Data Preview")
     st.dataframe(df.head())
 else:
-    st.info("Please upload a CSV or Excel file to get started.")
+    st.info("Please upload a CSV, Parquet, JSON, or Excel file to get started.")
     st.stop()
 
 # ---------------------------

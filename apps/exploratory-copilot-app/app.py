@@ -1,11 +1,9 @@
-# BUSINESS SCIENCE
 # Exploratory Data Analysis (EDA) Copilot App
 # -----------------------
 
 # This app helps you search for data and produces exploratory analysis reports.
 
 # Imports
-# !pip install git+https://github.com/business-science/ai-data-science-team.git --upgrade
 
 from openai import OpenAI
 import streamlit as st
@@ -145,7 +143,7 @@ with st.expander("Example Questions", expanded=False):
 
 # Sidebar for file upload / demo data
 st.sidebar.header("EDA Copilot: Data Upload/Selection", divider=True)
-st.sidebar.header("Upload Data (CSV or Excel)")
+st.sidebar.header("Upload Data (CSV, Parquet, JSON, Excel)")
 use_demo_data = st.sidebar.checkbox("Use demo data", value=False)
 
 if "DATA_RAW" not in st.session_state:
@@ -165,19 +163,40 @@ if use_demo_data:
         )
 else:
     uploaded_file = st.sidebar.file_uploader(
-        "Upload CSV or Excel file", type=["csv", "xlsx"]
+        "Upload data file",
+        type=["csv", "parquet", "json", "jsonl", "xlsx", "xls", "tsv"],
     )
     if uploaded_file:
-        if uploaded_file.name.endswith(".csv"):
+        fn_lower = uploaded_file.name.lower()
+        if fn_lower.endswith((".csv", ".csv.gz")):
             df = pd.read_csv(uploaded_file)
-        elif uploaded_file.name.endswith(".xlsx"):
+        elif fn_lower.endswith((".tsv", ".tsv.gz")):
+            df = pd.read_csv(uploaded_file, sep="\t")
+        elif fn_lower.endswith(".parquet"):
+            df = pd.read_parquet(uploaded_file)
+        elif fn_lower.endswith((".jsonl", ".ndjson")):
+            df = pd.read_json(uploaded_file, lines=True)
+        elif fn_lower.endswith(".json"):
+            try:
+                df = pd.read_json(uploaded_file)
+            except Exception:
+                try:
+                    uploaded_file.seek(0)
+                    df = pd.read_json(uploaded_file, lines=True)
+                except Exception:
+                    import json
+
+                    uploaded_file.seek(0)
+                    data = json.load(uploaded_file)
+                    df = pd.json_normalize(data)
+        else:
             df = pd.read_excel(uploaded_file)
         st.session_state["DATA_RAW"] = df.copy()
         file_name = Path(uploaded_file.name).stem
         st.write(f"## Preview of {file_name} data:")
         st.dataframe(st.session_state["DATA_RAW"])
     else:
-        st.info("Please upload a CSV or Excel file or Use Demo Data to proceed.")
+        st.info("Please upload a data file (CSV, Parquet, JSON, Excel) or Use Demo Data to proceed.")
 
 # Sidebar: OpenAI API Key and Model Selection
 st.sidebar.header("Enter your OpenAI API Key")

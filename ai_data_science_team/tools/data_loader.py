@@ -661,14 +661,19 @@ def load_csv(file_path: str, sep: str = ",", nrows: Optional[int] = None) -> pd.
     return pd.read_csv(file_path, sep=sep, nrows=nrows)
 
 
-def load_excel(file_path: str, sheet_name=None, nrows: Optional[int] = None) -> pd.DataFrame:
+def load_excel(file_path: str, sheet_name=0, nrows: Optional[int] = None) -> pd.DataFrame:
     """
     Tool: load_excel
     Description: Loads an Excel file into a pandas DataFrame.
     """
     import pandas as pd
 
-    return pd.read_excel(file_path, sheet_name=sheet_name, nrows=nrows)
+    res = pd.read_excel(file_path, sheet_name=sheet_name, nrows=nrows)
+    if isinstance(res, dict):
+        # If multiple sheets returned, return the first sheet
+        first_key = next(iter(res))
+        return res[first_key]
+    return res
 
 
 def load_json(file_path: str, lines: bool = False, nrows: Optional[int] = None) -> pd.DataFrame:
@@ -677,9 +682,58 @@ def load_json(file_path: str, lines: bool = False, nrows: Optional[int] = None) 
     Description: Loads a JSON file or NDJSON into a pandas DataFrame.
     """
     import pandas as pd
+    import json
 
-    # For simple JSON arrays or line-delimited JSON
-    return pd.read_json(file_path, orient="records", lines=lines, nrows=nrows)
+    if lines:
+        try:
+            return pd.read_json(file_path, lines=True, nrows=nrows)
+        except Exception:
+            pass
+
+    # 1. Inspect structure via standard json parser
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            data = json.load(f)
+
+        if isinstance(data, list):
+            df = pd.json_normalize(data)
+            if nrows is not None and len(df) > nrows:
+                return df.head(nrows)
+            return df
+        elif isinstance(data, dict):
+            # Check for common container keys
+            for k in ("data", "records", "rows", "items", "results"):
+                if k in data and isinstance(data[k], list):
+                    df = pd.json_normalize(data[k])
+                    if nrows is not None and len(df) > nrows:
+                        return df.head(nrows)
+                    return df
+            # Check if dict of columns
+            try:
+                df = pd.DataFrame(data)
+                if nrows is not None and len(df) > nrows:
+                    return df.head(nrows)
+                return df
+            except Exception:
+                df = pd.json_normalize(data)
+                if nrows is not None and len(df) > nrows:
+                    return df.head(nrows)
+                return df
+    except Exception:
+        pass
+
+    # 2. Fallback to pd.read_json
+    try:
+        return pd.read_json(file_path, orient="records", lines=lines, nrows=nrows)
+    except Exception:
+        pass
+
+    try:
+        return pd.read_json(file_path, lines=True, nrows=nrows)
+    except Exception:
+        pass
+
+    return pd.read_json(file_path, nrows=nrows)
 
 
 def load_parquet(file_path: str, max_rows: Optional[int] = None) -> pd.DataFrame:

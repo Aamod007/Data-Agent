@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: H2O Machine Learning Agent
+# Agents: H2O Machine Learning Agent
 
 import os
 import json

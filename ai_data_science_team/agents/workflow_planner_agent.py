@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Workflow Planner Agent
+# Agents: Workflow Planner Agent
 
 from __future__ import annotations
 

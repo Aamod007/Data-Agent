@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Feature Engineering Agent
+# Agents: Feature Engineering Agent
 
 # Libraries
 from typing_extensions import TypedDict, Annotated, Sequence, Literal
@@ -143,7 +140,7 @@ class FeatureEngineeringAgent(BaseAgent):
         human_in_the_loop=True
     )
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     feature_agent.invoke_agent(
         user_instructions="Also encode the 'PaymentMethod' column with one-hot encoding.",
@@ -536,7 +533,7 @@ def make_feature_engineering_agent(
 
     feature_engineering_agent = make_feature_engineering_agent(llm)
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     response = feature_engineering_agent.invoke({
         "user_instructions": None,

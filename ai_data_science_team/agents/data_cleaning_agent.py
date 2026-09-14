@@ -1,7 +1,4 @@
-# BUSINESS SCIENCE UNIVERSITY
-# AI DATA SCIENCE TEAM
-# ***
-# * Agents: Data Cleaning Agent
+# Agents: Data Cleaning Agent
 
 # Libraries
 from typing_extensions import TypedDict, Annotated, Sequence, Literal
@@ -137,7 +134,7 @@ class DataCleaningAgent(BaseAgent):
         model=llm, n_samples=50, log=True, log_path="logs", human_in_the_loop=True
     )
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     data_cleaning_agent.invoke_agent(
         user_instructions="Don't remove outliers when cleaning the data.",
@@ -437,7 +434,7 @@ def make_data_cleaning_agent(
 
     data_cleaning_agent = make_data_cleaning_agent(llm)
 
-    df = pd.read_csv("https://raw.githubusercontent.com/business-science/ai-data-science-team/refs/heads/master/data/churn_data.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/Aamod007/ai-data-science-team/refs/heads/master/data/churn_data.csv")
 
     response = data_cleaning_agent.invoke({
         "user_instructions": "Don't remove outliers when cleaning the data.",
