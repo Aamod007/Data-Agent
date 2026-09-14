@@ -1,7 +1,7 @@
 # [STATUS: COMPLETED] Data Cleaning Agent Review
 
 ## Overview
-Path: `ai_data_science_team/agents/data_cleaning_agent.py`  
+Path: `data_agnets/agents/data_cleaning_agent.py`  
 Focus: construction of the data cleaning agent (graph wiring, prompts, execution path).  
 Result: Several high/medium risk items that need mitigation before wider use.
 

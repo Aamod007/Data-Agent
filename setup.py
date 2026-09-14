@@ -12,19 +12,19 @@ with open("README.md", "r", encoding="utf-8", errors="ignore") as fh:
     long_description = fh.read()
 
 version = {}
-with open("ai_data_science_team/_version.py", encoding="utf-8") as fp:
+with open("data_agnets/_version.py", encoding="utf-8") as fp:
     exec(fp.read(), version)
 
 
 setup(
-    name="ai-data-science-team",
+    name="data-agnets",
     version=version["__version__"],
-    description="Build and run an AI-powered data science team.",
+    description="Build and run Data Agnets for data science workflows.",
     author="Aamod Kumar",
     author_email="aamodkumar@outlook.com",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Aamod007/ai-data-science-team",
+    url="https://github.com/Aamod007/data-agnets",
     packages=find_packages(),
     install_requires=parse_requirements("requirements.txt"),
     extras_require={

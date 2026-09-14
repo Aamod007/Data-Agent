@@ -1,4 +1,4 @@
-ai-data-science-team
+data-agnets
 streamlit
 sqlalchemy
 pandas

@@ -1,4 +1,4 @@
-# Data Agents
+# Data Agnets
 
 A Python library that gives you a team of specialized AI agents for everyday data science work. Each agent handles one piece of the pipeline -- loading data, cleaning it, wrangling it into shape, building charts, running models -- and they can be composed together or orchestrated by a supervisor to tackle end-to-end analysis tasks.
 
@@ -10,7 +10,7 @@ The library also ships with **AI Pipeline Studio**, a Streamlit application that
 
 The project is split into two halves:
 
-1. **The library** (`ai_data_science_team/`) -- importable agents and tools you can use from notebooks or scripts.
+1. **The library** (`data_agnets/`) -- importable agents and tools you can use from notebooks or scripts.
 2. **The apps** (`apps/`) -- ready-to-run Streamlit applications built on top of the library.
 
 ### Agents
@@ -60,8 +60,8 @@ The `tools/` package contains the LangChain-compatible tool functions that agent
 Clone the repository and install in editable mode:
 
 ```bash
-git clone https://github.com/Aamod007/ai-data-science-team.git
-cd ai-data-science-team
+git clone https://github.com/Aamod007/data-agnets.git
+cd data-agnets
 pip install -e .
 ```
 
@@ -114,7 +114,7 @@ llm = ChatOllama(model="llama3.1:8b")
 
 ```python
 import pandas as pd
-from ai_data_science_team import DataCleaningAgent
+from data_agnets import DataCleaningAgent
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(model_name="gpt-4.1-mini")
@@ -163,8 +163,8 @@ Detailed documentation for the app lives in `apps/ai-pipeline-studio-app/README.
 ## Project structure
 
 ```
-ai-data-science-team/
-    ai_data_science_team/        # The Python package
+data-agnets/
+    data_agnets/        # The Python package
         agents/                  # Individual agent implementations
         ds_agents/               # Data science-specific agents (EDA)
         ml_agents/               # Machine learning agents (H2O, MLflow)

@@ -7,7 +7,7 @@ ingest/load → wrangle/clean → EDA → visualization → model training (H2O)
 This plan focuses on gaps that cause incorrect outputs, missing workflow steps, or unreliable “end-to-end” execution.
 
 ## Current State (What Exists)
-- Supervisor router + shared state: `ai_data_science_team/multiagents/supervisor_ds_team.py`
+- Supervisor router + shared state: `data_agnets/multiagents/supervisor_ds_team.py`
 - Sub-agents integrated:
   - `Data_Loader_Tools_Agent` (file discovery/loading)
   - `Data_Wrangling_Agent`, `Data_Cleaning_Agent`

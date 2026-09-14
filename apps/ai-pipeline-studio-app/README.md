@@ -1,6 +1,6 @@
 # AI Pipeline Studio
 
-AI Pipeline Studio is a Streamlit app that centers your workflow around a visual pipeline, while the Data Agents handles data loading, cleaning, visualization, and modeling. Use it to create, inspect, and evolve datasets step-by-step with full lineage, reproducible scripts, and project saves.
+AI Pipeline Studio is a Streamlit app that centers your workflow around a visual pipeline, while Data Agnets handles data loading, cleaning, visualization, and modeling. Use it to create, inspect, and evolve datasets step-by-step with full lineage, reproducible scripts, and project saves.
 
 ## Highlights
 - Pipeline-first workspace: visual editor, table, chart, EDA, code, model, predictions, MLflow

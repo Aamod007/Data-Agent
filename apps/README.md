@@ -1,6 +1,6 @@
 # AI-Powered Applications
 
-This repository contains a collection of AI-powered applications that are built using the Data Agents. 
+This repository contains a collection of AI-powered applications that are built using the Data Agnets. 
 
 More applications are coming soon! Stay tuned!
 

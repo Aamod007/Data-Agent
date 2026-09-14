@@ -15,7 +15,7 @@ import asyncio
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 from langchain_openai import ChatOpenAI
 
-from ai_data_science_team.agents import SQLDatabaseAgent
+from data_agnets.agents import SQLDatabaseAgent
 
 # * APP INPUTS ----
 
