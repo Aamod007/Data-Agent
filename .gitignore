@@ -186,6 +186,7 @@ environment_ds4b_301p_dev.yml
 # React workspace build output
 frontend/node_modules/
 frontend/.next/
+frontend/.next-build/
 temp/workspace_uploads/
 frontend/tsconfig.tsbuildinfo
 *.tsbuildinfo

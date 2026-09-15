@@ -367,7 +367,7 @@ export function DatasetWorkspace() {
                       </Link>
                       <a
                         className="table-icon"
-                        href={`http://localhost:8000/api/datasets/${dataset.id}/download?format=csv`}
+                        href={`/api/datasets/${dataset.id}/download?format=csv`}
                         title="Download CSV"
                         aria-label={`Download ${dataset.name} as CSV`}
                         onClick={(event) => event.stopPropagation()}

@@ -76,6 +76,11 @@ class AgentRunner:
                 base_url=config.base_url or "https://integrate.api.nvidia.com/v1",
                 api_key=api_key,
                 temperature=0.1,
+                # Without this the openai SDK defaults to a 600s timeout with 2
+                # retries, so one stalled request can block a run for ~30 min.
+                # Bounded here so it fails visibly instead. Tune via env.
+                timeout=float(os.environ.get("AGENT_LLM_TIMEOUT", "180")),
+                max_retries=1,
             )
         if config.provider == "ollama":
             try:
@@ -197,6 +202,18 @@ class AgentRunner:
         return artifacts
 
     def _execute(self, run: Run, request: AgentInvocation) -> None:
+        # Agents make many sequential LLM calls and report no progress, so the UI
+        # (which renders run.logs[-1]) freezes on one line for minutes and looks
+        # hung. Emit elapsed time so a long run is visibly alive.
+        stop_heartbeat = threading.Event()
+
+        def _heartbeat() -> None:
+            started = time.time()
+            while not stop_heartbeat.wait(15):
+                run.logs.append(f"Still running… {int(time.time() - started)}s elapsed.")
+                run.updated_at = time.time()
+
+        threading.Thread(target=_heartbeat, daemon=True).start()
         try:
             run.status = "running"
             run.updated_at = time.time()
@@ -277,6 +294,7 @@ class AgentRunner:
             run.message = str(exc)
             run.logs.append(f"Run failed: {exc}")
         finally:
+            stop_heartbeat.set()
             run.updated_at = time.time()
 
 

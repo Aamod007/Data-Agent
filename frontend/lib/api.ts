@@ -16,7 +16,8 @@ import type {
 } from "@/lib/types";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ||
+  (typeof window !== "undefined" ? "" : "http://127.0.0.1:8000");
 
 class HttpError extends Error {
   status: number;
@@ -158,7 +159,8 @@ export const api = {
 };
 
 // Subscribes to /api/agents/{id}/events (SSE) and invokes `onUpdate` with the
-// parsed AgentRun payload. Returns a cleanup function.
+// parsed AgentRun payload. Falls back to polling if SSE errors or disconnects.
+// Returns a cleanup function.
 export function streamRun(
   runId: string,
   onUpdate: (run: AgentRun) => void,
@@ -166,33 +168,72 @@ export function streamRun(
 ): () => void {
   const url = `${API_BASE}/api/agents/${encodeURIComponent(runId)}/events`;
   let source: EventSource | null = null;
-  try {
-    source = new EventSource(url);
-  } catch (err) {
-    onError?.(err instanceof Error ? err.message : String(err));
-    return () => undefined;
-  }
-  const handler = (event: MessageEvent) => {
-    try {
-      const payload = JSON.parse(event.data) as AgentRun;
-      onUpdate(payload);
-    } catch (err) {
-      onError?.(err instanceof Error ? err.message : String(err));
+  let pollingTimer: ReturnType<typeof setInterval> | null = null;
+  let closed = false;
+
+  const stopPolling = () => {
+    if (pollingTimer != null) {
+      clearInterval(pollingTimer);
+      pollingTimer = null;
     }
   };
-  source.addEventListener("status", handler);
-  source.addEventListener("complete", handler);
-  source.addEventListener("error", (event) => {
-    // EventSource auto-reconnects on transient errors; only surface after close.
-    if (source?.readyState === EventSource.CLOSED) {
-      onError?.("Agent run stream closed unexpectedly.");
-    }
-  });
+
+  const startPolling = () => {
+    if (closed || pollingTimer != null) return;
+    pollingTimer = setInterval(async () => {
+      if (closed) {
+        stopPolling();
+        return;
+      }
+      try {
+        const run = await api.run(runId);
+        onUpdate(run);
+        if (run.status === "completed" || run.status === "failed") {
+          stopPolling();
+        }
+      } catch (err) {
+        stopPolling();
+        onError?.(err instanceof Error ? err.message : String(err));
+      }
+    }, 1500);
+  };
+
+  try {
+    source = new EventSource(url);
+    const handler = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as AgentRun;
+        onUpdate(payload);
+        if (payload.status === "completed" || payload.status === "failed") {
+          source?.close();
+          source = null;
+          stopPolling();
+        }
+      } catch (err) {
+        onError?.(err instanceof Error ? err.message : String(err));
+      }
+    };
+    source.addEventListener("status", handler);
+    source.addEventListener("complete", handler);
+    source.addEventListener("error", () => {
+      // If EventSource drops or closes, seamlessly fallback to polling
+      if (!source || source.readyState === EventSource.CLOSED || source.readyState === EventSource.CONNECTING) {
+        source?.close();
+        source = null;
+        startPolling();
+      }
+    });
+  } catch {
+    startPolling();
+  }
+
   return () => {
-    source?.removeEventListener("status", handler);
-    source?.removeEventListener("complete", handler);
-    source?.close();
-    source = null;
+    closed = true;
+    stopPolling();
+    if (source) {
+      source.close();
+      source = null;
+    }
   };
 }
 

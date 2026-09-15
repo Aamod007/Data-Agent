@@ -27,18 +27,36 @@ export function ExplorerWorkspace() {
     [datasets, activeDatasetId]
   );
 
+  const datasetId = activeDataset?.id ?? null;
+
+  // Keyed on the id, not the dataset object: the datasets array is replaced on
+  // every refresh, so the object identity changed each time and retriggered this
+  // effect -> setLoading(true) -> the whole EDA view blanked to a spinner.
   useEffect(() => {
-    if (!activeDataset) {
+    if (!datasetId) {
       setProfile(null);
+      setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    api.profile(activeDataset.id)
-      .then(setProfile)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load dataset profile."))
-      .finally(() => setLoading(false));
-  }, [activeDataset]);
+    api.profile(datasetId)
+      .then((p) => {
+        if (!cancelled) setProfile(p);
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : "Could not load dataset profile.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId]);
 
   const filteredColumns = useMemo(() => {
     if (!profile) return [];

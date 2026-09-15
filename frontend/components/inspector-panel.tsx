@@ -45,24 +45,37 @@ export function InspectorPanel() {
     () => datasets.find((d) => d.id === activeDatasetId) ?? datasets[0] ?? null,
     [datasets, activeDatasetId]
   );
+  const datasetId = activeDataset?.id ?? null;
 
+  // Depend on the id, not the dataset object. The datasets array is replaced on
+  // every refresh, so `activeDataset` was a new object each time and retriggered
+  // this effect -> setLoading(true) -> the panel blanked to a spinner. That was
+  // the flicker. Cancellation also stops a slow response stomping a newer one.
   useEffect(() => {
-    if (!activeDataset) {
+    if (!datasetId) {
       setProfile(null);
       setDetails(null);
+      setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     Promise.all([
-      api.profile(activeDataset.id).catch(() => null),
-      api.details(activeDataset.id).catch(() => null),
+      api.profile(datasetId).catch(() => null),
+      api.details(datasetId).catch(() => null),
     ])
       .then(([p, d]) => {
+        if (cancelled) return;
         setProfile(p);
         setDetails(d);
       })
-      .finally(() => setLoading(false));
-  }, [activeDataset]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId]);
 
 
 

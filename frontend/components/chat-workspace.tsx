@@ -129,10 +129,29 @@ export function ChatWorkspace() {
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
   };
 
+  const loadQuickSample = async (sampleId = "bike_sales_data") => {
+    try {
+      setError(null);
+      const loaded = await api.loadSample(sampleId);
+      const list = await api.datasets();
+      setDatasets(list);
+      setActive(loaded.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load sample dataset.");
+    }
+  };
+
   const handleExecute = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!instructions.trim() || !activeDataset || run?.status === "running" || run?.status === "queued") return;
     const prompt = instructions.trim();
+    if (!prompt) return;
+    if (run?.status === "running" || run?.status === "queued") return;
+
+    if (!activeDataset) {
+      setError("No dataset selected. Please load a sample or select a dataset from the sidebar first.");
+      return;
+    }
+
     setInstructions("");
     setError(null);
 
@@ -182,10 +201,34 @@ export function ChatWorkspace() {
             api.datasets().then(setDatasets).catch(() => undefined);
           }
         },
-        setError
+        (errMsg) => {
+          cleanup.current = null;
+          setError(errMsg);
+          setRun(null);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              text: `Agent execution notice: ${errMsg}`,
+              time: nowTime(),
+            },
+          ]);
+        }
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to trigger agent.");
+      const msg = cause instanceof Error ? cause.message : "Failed to trigger agent.";
+      setError(msg);
+      setRun(null);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: `Failed to start agent: ${msg}`,
+          time: nowTime(),
+        },
+      ]);
     }
   };
 
@@ -234,6 +277,27 @@ export function ChatWorkspace() {
             <br />
             Ask a question, run an analysis, or generate a visualization.
           </p>
+
+          {!activeDataset && (
+            <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="button primary"
+                onClick={() => void loadQuickSample("bike_sales_data")}
+              >
+                <Sparkles size={13} />
+                <span>Load Bike Sales Sample</span>
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FileUp size={13} />
+                <span>Upload File</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="theme-stream-scroll">
@@ -317,7 +381,11 @@ export function ChatWorkspace() {
                 if (instructions.trim() && !run) void handleExecute();
               }
             }}
-            placeholder="Ask your agent anything..."
+            placeholder={
+              activeDataset
+                ? `Ask your agent anything about ${activeDataset.name}...`
+                : "Select or upload a dataset to start asking questions..."
+            }
             rows={1}
             disabled={Boolean(run)}
           />
