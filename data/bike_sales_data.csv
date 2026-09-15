@@ -1,0 +1,31 @@
+order_id,order_date,customer_id,model_id,store,city,state,country,quantity,unit_price,discount_pct,revenue,payment_method
+1001,2025-01-04,C-001,M-100,SF Downtown,San Francisco,CA,USA,1,899,0,899,credit_card
+1002,2025-01-05,C-002,M-200,LA Westwood,Los Angeles,CA,USA,1,649,5,616.55,debit_card
+1003,2025-01-06,C-003,M-300,NYC Soho,New York,NY,USA,1,1899,0,1899,credit_card
+1004,2025-01-08,C-004,M-301,Chicago Loop,Chicago,IL,USA,1,2399,10,2159.1,credit_card
+1005,2025-01-10,C-005,M-100,SF Downtown,San Francisco,CA,USA,2,899,0,1798,credit_card
+1006,2025-01-12,C-006,M-201,LA Westwood,Los Angeles,CA,USA,1,799,0,799,cash
+1007,2025-01-15,C-007,M-400,Austin South,Austin,TX,USA,1,1799,5,1709.05,credit_card
+1008,2025-01-18,C-008,M-300,Seattle Pike,Seattle,WA,USA,1,1899,0,1899,credit_card
+1009,2025-01-20,C-009,M-100,Denver LoDo,Denver,CO,USA,1,899,15,764.15,debit_card
+1010,2025-01-22,C-010,M-401,Miami Wynwood,Miami,FL,USA,1,2099,0,2099,credit_card
+1011,2025-02-01,C-011,M-200,Boston Back Bay,Boston,MA,USA,1,649,0,649,cash
+1012,2025-02-03,C-012,M-301,NYC Soho,New York,NY,USA,1,2399,0,2399,credit_card
+1013,2025-02-05,C-013,M-100,Portland Pearl,Portland,OR,USA,1,899,0,899,debit_card
+1014,2025-02-08,C-014,M-400,Phoenix Old Town,Phoenix,AZ,USA,1,1799,10,1619.1,credit_card
+1015,2025-02-10,C-015,M-300,Chicago Loop,Chicago,IL,USA,1,1899,5,1804.05,credit_card
+1016,2025-02-12,C-016,M-201,SF Downtown,San Francisco,CA,USA,2,799,0,1598,credit_card
+1017,2025-02-15,C-017,M-101,LA Westwood,Los Angeles,CA,USA,1,1499,0,1499,credit_card
+1018,2025-02-18,C-018,M-401,Seattle Pike,Seattle,WA,USA,1,2099,0,2099,credit_card
+1019,2025-02-20,C-019,M-200,Austin South,Austin,TX,USA,1,649,0,649,cash
+1020,2025-02-22,C-020,M-300,Miami Wynwood,Miami,FL,USA,1,1899,0,1899,credit_card
+1021,2025-03-01,C-021,M-100,Denver LoDo,Denver,CO,USA,1,899,20,719.2,credit_card
+1022,2025-03-04,C-022,M-400,NYC Soho,New York,NY,USA,1,1799,0,1799,credit_card
+1023,2025-03-06,C-023,M-201,Boston Back Bay,Boston,MA,USA,1,799,0,799,debit_card
+1024,2025-03-08,C-024,M-301,Portland Pearl,Portland,OR,USA,1,2399,5,2279.05,credit_card
+1025,2025-03-10,C-025,M-101,Phoenix Old Town,Phoenix,AZ,USA,1,1499,0,1499,credit_card
+1026,2025-03-12,C-026,M-100,SF Downtown,San Francisco,CA,USA,3,899,5,2562.15,credit_card
+1027,2025-03-15,C-027,M-200,LA Westwood,Los Angeles,CA,USA,1,649,0,649,cash
+1028,2025-03-18,C-028,M-401,Chicago Loop,Chicago,IL,USA,1,2099,0,2099,credit_card
+1029,2025-03-20,C-029,M-300,Seattle Pike,Seattle,WA,USA,1,1899,10,1709.1,credit_card
+1030,2025-03-22,C-030,M-100,NYC Soho,New York,NY,USA,1,899,0,899,debit_card

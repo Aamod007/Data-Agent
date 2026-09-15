@@ -78,8 +78,14 @@ class AgentRunner:
                 temperature=0.1,
             )
         if config.provider == "ollama":
-            from langchain_ollama import ChatOllama
-
+            try:
+                from langchain_ollama import ChatOllama
+            except ImportError as exc:  # ponytail: surface a useful message, not a stack trace
+                raise RuntimeError(
+                    "Ollama provider requires `langchain-ollama`. "
+                    "Install it with `pip install '.[ollama]'` or `pip install langchain-ollama`, "
+                    "then restart the backend."
+                ) from exc
             return ChatOllama(model=config.model or "llama3", base_url=config.base_url or None)
         if config.provider == "lm_studio":
             return ChatOpenAI(

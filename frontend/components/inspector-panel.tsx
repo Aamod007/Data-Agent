@@ -91,12 +91,12 @@ export function InspectorPanel() {
         plot_bgcolor: "transparent",
         xaxis: {
           tickangle: -35,
-          tickfont: { size: 9, family: "JetBrains Mono, monospace", color: "#8b95a5" },
+          tickfont: { size: 9, family: "JetBrains Mono, monospace", color: "#475569" },
           gridcolor: "rgba(255, 255, 255, 0.05)",
           zerolinecolor: "rgba(255, 255, 255, 0.1)",
         },
         yaxis: {
-          tickfont: { size: 9, family: "JetBrains Mono, monospace", color: "#8b95a5" },
+          tickfont: { size: 9, family: "JetBrains Mono, monospace", color: "#475569" },
           gridcolor: "rgba(255, 255, 255, 0.05)",
           zerolinecolor: "rgba(255, 255, 255, 0.1)",
         },
@@ -116,15 +116,15 @@ export function InspectorPanel() {
           x: columns,
           y: columns,
           colorscale: [
-            [0, "#0b1329"],
-            [0.5, "#1e3a8a"],
-            [1, "#93c5fd"],
+            [0, "#f8fafc"],
+            [0.5, "#93c5fd"],
+            [1, "#1d4ed8"],
           ],
           reversescale: false,
           hoverongaps: false,
           colorbar: {
             thickness: 8,
-            tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#8b95a5" },
+            tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#475569" },
             len: 0.9,
           },
         },
@@ -136,10 +136,10 @@ export function InspectorPanel() {
         plot_bgcolor: "transparent",
         xaxis: {
           tickangle: -35,
-          tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#8b95a5" },
+          tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#475569" },
         },
         yaxis: {
-          tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#8b95a5" },
+          tickfont: { size: 8, family: "JetBrains Mono, monospace", color: "#475569" },
         },
       },
     };

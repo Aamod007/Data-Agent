@@ -2,7 +2,8 @@ openpyxl
 pyarrow
 langchain >= 1.0.0
 langchain_community
-langchain-ollama
+# langchain-ollama is optional — install it only when you use the Ollama provider.
+#   pip install langchain-ollama
 langchain_openai >= 1.0.0
 langchain_experimental
 langgraph >= 1.0.0

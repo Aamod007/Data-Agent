@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { Dataset } from "@/lib/types";
+import type { AgentKind, Dataset } from "@/lib/types";
 
 export type InspectorTabType = "overview" | "eda" | "schema";
 
@@ -11,7 +11,7 @@ type WorkspaceState = {
   leftSidebarOpen: boolean;
   inspectorOpen: boolean;
   inspectorTab: InspectorTabType;
-  selectedAgent: string;
+  selectedAgent: AgentKind;
   autoRoute: boolean;
   setDatasets: (datasets: Dataset[]) => void;
   setActive: (datasetId: string | null) => void;
@@ -20,7 +20,7 @@ type WorkspaceState = {
   toggleInspector: () => void;
   setInspectorOpen: (open: boolean) => void;
   setInspectorTab: (tab: InspectorTabType) => void;
-  setSelectedAgent: (agent: string) => void;
+  setSelectedAgent: (agent: AgentKind) => void;
   setAutoRoute: (autoRoute: boolean) => void;
 };
 

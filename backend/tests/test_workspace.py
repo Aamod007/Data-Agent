@@ -16,9 +16,11 @@ def test_upload_registers_preview_and_schema(tmp_path, monkeypatch):
     assert dataset.name == "sales-data"
     assert dataset.frame.shape == (2, 2)
     assert store.list_datasets()[0].is_active is True
+    # pandas 3.x reports the default string dtype as "str"; older versions said
+    # "object". Compare against what pandas actually reports instead of pinning.
     assert store.columns(dataset.frame) == [
-        {"name": "region", "dtype": "object", "nulls": 0, "unique": 2},
-        {"name": "amount", "dtype": "float64", "nulls": 0, "unique": 2},
+        {"name": "region", "dtype": str(dataset.frame["region"].dtype), "nulls": 0, "unique": 2},
+        {"name": "amount", "dtype": str(dataset.frame["amount"].dtype), "nulls": 0, "unique": 2},
     ]
 
 

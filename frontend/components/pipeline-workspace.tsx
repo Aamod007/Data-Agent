@@ -5,6 +5,7 @@ import {
   Background,
   Controls,
   Handle,
+  MarkerType,
   MiniMap,
   Position,
   ReactFlow,
@@ -14,13 +15,17 @@ import {
   type Edge,
   type Node,
   type NodeTypes,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
   BarChart2,
+  BarChart3,
+  Check,
   Database,
-  FileChartColumnIncreasing,
+  Info,
   LoaderCircle,
   MessageSquare,
   Play,
@@ -28,14 +33,15 @@ import {
   RefreshCw,
   Sparkles,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Dataset } from "@/lib/types";
+import type { AgentKind, Dataset, DatasetProfile } from "@/lib/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
-/* ─────────── Color Palette ─────────── */
+/* ─────────── Constants ─────────── */
 
 const stageColors: Record<string, string> = {
   raw: "#3b82f6",
@@ -43,6 +49,21 @@ const stageColors: Record<string, string> = {
   wrangled: "#f59e0b",
   engineered: "#a855f7",
 };
+
+type NodeStatus = "idle" | "running" | "success" | "error";
+
+// Icons per agent type so each node reads at a glance.
+const agentIcons: Record<string, typeof Sparkles> = {
+  cleaning: Sparkles,
+  wrangling: Wrench,
+  feature_eng: Sparkles,
+  viz: BarChart2,
+};
+
+const COL_W = 320; // horizontal gap between lineage levels
+const ROW_H = 132; // vertical gap between siblings
+const AGENT_X = 420; // agents hang off to the right of the dataset column
+const AGENT_H = 118;
 
 /* ─────────── Custom Node: Dataset ─────────── */
 
@@ -54,8 +75,8 @@ function DatasetNode({
     label: string;
     stage: string;
     shape: string;
+    source: string;
     color: string;
-    datasetId: string;
   };
   selected?: boolean;
 }) {
@@ -67,7 +88,9 @@ function DatasetNode({
       <Handle type="target" position={Position.Left} className="pipeline-handle" />
       <div className="pipeline-node-header">
         <Database size={13} style={{ color: data.color, flexShrink: 0 }} />
-        <span className="pipeline-node-name mono">{data.label}</span>
+        <span className="pipeline-node-name mono" title={data.label}>
+          {data.label}
+        </span>
       </div>
       <div className="pipeline-node-badges">
         <span
@@ -82,6 +105,11 @@ function DatasetNode({
         </span>
         <span className="pipeline-node-dim mono">{data.shape}</span>
       </div>
+      {data.source && (
+        <div className="pipeline-node-source mono" title={data.source}>
+          {data.source}
+        </div>
+      )}
       <Handle type="source" position={Position.Right} className="pipeline-handle" />
     </div>
   );
@@ -97,16 +125,47 @@ function AgentNode({
     label: string;
     agentType: string;
     onRun?: () => void;
-    running?: boolean;
+    status?: NodeStatus;
+    errorDetail?: string;
   };
   selected?: boolean;
 }) {
+  const status = data.status ?? "idle";
+  const Icon = agentIcons[data.agentType] ?? Sparkles;
+
+  const runIcon =
+    status === "success" ? (
+      <Check size={10} />
+    ) : status === "error" ? (
+      <AlertCircle size={10} />
+    ) : status === "running" ? (
+      <LoaderCircle className="spin" size={10} />
+    ) : (
+      <Play size={10} />
+    );
+  const runLabel =
+    status === "success"
+      ? "DONE"
+      : status === "error"
+        ? "FAILED"
+        : status === "running"
+          ? "RUNNING"
+          : "RUN";
+
   return (
-    <div className={`pipeline-agent-node ${selected ? "selected" : ""}`}>
+    <div className={`pipeline-agent-node status-${status} ${selected ? "selected" : ""}`}>
       <Handle type="target" position={Position.Left} className="pipeline-handle" />
       <div className="pipeline-node-header">
-        <Sparkles size={13} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
-        <span className="pipeline-node-name mono">{data.label}</span>
+        <Icon size={13} className="pipeline-agent-icon" style={{ flexShrink: 0 }} />
+        <span className="pipeline-node-name mono" title={data.label}>
+          {data.label}
+        </span>
+        {status === "success" && (
+          <Check size={12} className="pipeline-status-mark ok" aria-label="Succeeded" />
+        )}
+        {status === "error" && (
+          <AlertCircle size={12} className="pipeline-status-mark bad" aria-label="Failed" />
+        )}
       </div>
       <div className="pipeline-agent-bottom">
         <span className="pipeline-transform-badge">TRANSFORM</span>
@@ -117,16 +176,20 @@ function AgentNode({
             e.stopPropagation();
             data.onRun?.();
           }}
-          disabled={data.running}
+          disabled={status === "running"}
         >
-          {data.running ? (
-            <LoaderCircle className="spin" size={10} />
-          ) : (
-            <Play size={10} />
-          )}
-          <span>RUN</span>
+          {runIcon}
+          <span>{runLabel}</span>
         </button>
       </div>
+      {status === "error" && data.errorDetail && (
+        <details className="pipeline-node-error mono">
+          <summary>
+            <AlertCircle size={9} /> Error
+          </summary>
+          <p>{data.errorDetail}</p>
+        </details>
+      )}
       <Handle type="source" position={Position.Right} className="pipeline-handle" />
     </div>
   );
@@ -139,6 +202,7 @@ const nodeTypes: NodeTypes = {
 
 /* ─────────── Layout Helper ─────────── */
 
+/** Place dataset nodes by lineage depth; agents stack in their own column. */
 function buildLayout(
   datasets: Dataset[],
   activeDatasetId: string | null,
@@ -162,13 +226,13 @@ function buildLayout(
     return {
       id: ds.id,
       type: "datasetNode",
-      position: { x: level * 280 + 40, y: index * 140 + 40 },
+      position: { x: level * COL_W + 40, y: index * ROW_H + 60 },
       data: {
         label: ds.name,
         stage: ds.stage,
         shape: `${ds.shape[0].toLocaleString()} × ${ds.shape[1]}`,
+        source: ds.source.replace(/^(upload|sample|agent) · /, ""),
         color,
-        datasetId: ds.id,
       },
     };
   });
@@ -179,13 +243,10 @@ function buildLayout(
       id: `e-${ds.parent_id}-${ds.id}`,
       source: ds.parent_id!,
       target: ds.id,
-      type: "default",
+      type: "smoothstep",
       animated: ds.id === activeDatasetId,
-      style: {
-        stroke: "#ef4444",
-        strokeWidth: 2,
-        strokeDasharray: "6 4",
-      },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
+      style: { stroke: "#ef4444", strokeWidth: 1.5 },
     }));
 
   return { nodes, edges };
@@ -200,9 +261,33 @@ export function PipelineWorkspace() {
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [agentCounter, setAgentCounter] = useState(0);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [profile, setProfile] = useState<DatasetProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([] as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([] as Edge[]);
+
+  // Captured via onInit so we can re-fit after inserting a node. Nodes are
+  // placed at fixed offsets from their source dataset, which lands outside the
+  // viewport when the canvas is zoomed in from the mount-time fitView.
+  const rfRef = useRef<ReactFlowInstance | null>(null);
+
+  // Node `onRun` closures are created once and stored in node data, so they
+  // would otherwise capture a stale `runAgentFromNode`. Route through a ref
+  // that always points at the current render's handler.
+  const runRef = useRef<(agentType: string, nodeId: string, datasetId: string) => void>(
+    () => {},
+  );
+
+  const setNodeStatus = (nodeId: string, status: NodeStatus, errorDetail?: string) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, status, errorDetail } } : n,
+      ),
+    );
+  };
 
   // Load datasets
   useEffect(() => {
@@ -220,30 +305,60 @@ export function PipelineWorkspace() {
     );
   }, [activeDatasetId, datasets]);
 
-  // Build initial graph from datasets
+  // Lazy-load profile for the selected dataset when the panel opens.
+  useEffect(() => {
+    if (!panelOpen || !selected) {
+      setProfile(null);
+      setProfileError(null);
+      return;
+    }
+    setProfileLoading(true);
+    setProfileError(null);
+    api
+      .profile(selected.id)
+      .then(setProfile)
+      .catch((cause) =>
+        setProfileError(cause instanceof Error ? cause.message : "Could not load profile."),
+      )
+      .finally(() => setProfileLoading(false));
+  }, [panelOpen, selected]);
+
+  // Rebuild dataset nodes/edges from lineage; keep user-added agent nodes.
   useEffect(() => {
     const layout = buildLayout(datasets, activeDatasetId);
-    // Preserve any user-added agent nodes
+    const known = new Set(datasets.map((d) => d.id));
+
     setNodes((prev) => {
       const agentNodes = prev.filter((n) => n.type === "agentNode");
       return [...layout.nodes, ...agentNodes];
     });
     setEdges((prev) => {
-      const agentEdges = prev.filter((e) => e.id.startsWith("e-agent-"));
+      // Drop agent edges whose source dataset was deleted.
+      const agentEdges = prev.filter(
+        (e) => e.id.startsWith("e-agent-") && known.has(e.source),
+      );
       return [...layout.edges, ...agentEdges];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasets, activeDatasetId]);
 
-  // Connect handler
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds) => addEdge(params, eds));
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: "smoothstep",
+            markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
+            style: { stroke: "#ef4444", strokeWidth: 1.5 },
+          },
+          eds,
+        ),
+      );
     },
     [setEdges],
   );
 
-  // Click node handler
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (node.type === "datasetNode") {
@@ -257,48 +372,75 @@ export function PipelineWorkspace() {
     [datasets, setActive],
   );
 
-  // Add agent node
+  // Add an agent node, wired to the currently selected dataset.
   const addAgentNode = useCallback(
     (label: string, agentType: string) => {
+      const source = selected ?? datasets[0] ?? null;
+      if (!source) {
+        setActionNotice("Load a dataset before adding an agent node.");
+        return;
+      }
+
       const id = `agent-${agentType}-${agentCounter}`;
       setAgentCounter((c) => c + 1);
 
-      // Position near the center of the canvas
-      const baseX = 300 + agentCounter * 40;
-      const baseY = 200 + agentCounter * 30;
+      // Stack agents in a column to the right of their source dataset.
+      const sourceNode = nodes.find((n) => n.id === source.id);
+      const siblings = nodes.filter(
+        (n) => n.type === "agentNode" && n.data?.datasetId === source.id,
+      ).length;
 
       const newNode: Node = {
         id,
         type: "agentNode",
-        position: { x: baseX, y: baseY },
+        position: {
+          x: (sourceNode?.position.x ?? 40) + AGENT_X,
+          y: (sourceNode?.position.y ?? 60) + siblings * AGENT_H,
+        },
         data: {
           label,
           agentType,
-          running: false,
-          onRun: () => void runAgentFromNode(agentType, id),
+          datasetId: source.id,
+          status: "idle" as NodeStatus,
+          onRun: () => runRef.current(agentType, id, source.id),
         },
       };
 
       setNodes((nds) => [...nds, newNode]);
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `e-agent-${source.id}-${id}`,
+          source: source.id,
+          target: id,
+          type: "smoothstep",
+          markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
+          style: { stroke: "#ef4444", strokeWidth: 1.5 },
+        },
+      ]);
+
+      // Keep the new node in view: re-fit once the node has been laid out.
+      window.setTimeout(() => {
+        rfRef.current?.fitView({ padding: 0.25, duration: 300 });
+      }, 80);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agentCounter, setNodes],
+    [agentCounter, selected, datasets, nodes, setNodes, setEdges],
   );
 
-  // Run agent from a node
-  const runAgentFromNode = async (agentType: string, nodeId: string) => {
-    if (!selected) {
-      setActionNotice("Select a dataset node first to run an agent on.");
+  // Run an agent node against its source dataset.
+  const runAgentFromNode = async (
+    agentType: string,
+    nodeId: string,
+    datasetId: string,
+  ) => {
+    const dataset = datasets.find((d) => d.id === datasetId);
+    if (!dataset) {
+      setActionNotice("The source dataset for this node is no longer loaded.");
       return;
     }
     setRunningAction(nodeId);
-
-    // Mark node as running
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === nodeId ? { ...n, data: { ...n.data, running: true } } : n,
-      ),
-    );
+    setNodeStatus(nodeId, "running");
 
     const instructionMap: Record<string, string> = {
       cleaning:
@@ -310,20 +452,18 @@ export function PipelineWorkspace() {
       viz: "Generate insightful visualizations and plots from the dataset.",
     };
 
-    const agentMap: Record<string, string> = {
+    const agentMap: Record<string, AgentKind> = {
       cleaning: "cleaning",
       wrangling: "wrangling",
       feature_eng: "wrangling",
       viz: "visualization",
     };
 
-    setActionNotice(
-      `Running ${agentType} agent on ${selected.name}…`,
-    );
+    setActionNotice(`Running ${agentType} agent on ${dataset.name}…`);
 
     try {
       const { run_id } = await api.invoke({
-        dataset_id: selected.id,
+        dataset_id: dataset.id,
         agent: agentMap[agentType] ?? "cleaning",
         instructions: instructionMap[agentType] ?? instructionMap.cleaning,
       });
@@ -334,50 +474,36 @@ export function PipelineWorkspace() {
           if (run.status === "completed" || run.status === "failed") {
             window.clearInterval(poll);
             setRunningAction(null);
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === nodeId
-                  ? { ...n, data: { ...n.data, running: false } }
-                  : n,
-              ),
-            );
             if (run.status === "completed") {
-              setActionNotice(`Agent completed — new derived dataset added.`);
-              const updated = await api.datasets();
-              setDatasets(updated);
+              setNodeStatus(nodeId, "success");
+              setActionNotice("Agent completed — new derived dataset added.");
+              setDatasets(await api.datasets());
             } else {
+              setNodeStatus(nodeId, "error", run.message ?? "Agent run failed.");
               setActionNotice(`Agent run failed: ${run.message}`);
             }
           }
-        } catch {
+        } catch (err) {
           window.clearInterval(poll);
           setRunningAction(null);
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === nodeId
-                ? { ...n, data: { ...n.data, running: false } }
-                : n,
-            ),
-          );
+          setNodeStatus(nodeId, "error", err instanceof Error ? err.message : String(err));
         }
       }, 800);
     } catch (err) {
       setRunningAction(null);
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, running: false } }
-            : n,
-        ),
-      );
-      setActionNotice(
-        `Error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const detail = err instanceof Error ? err.message : String(err);
+      setNodeStatus(nodeId, "error", detail);
+      setActionNotice(`Error: ${detail}`);
     }
   };
 
-  // Run actions from sidebar
-  const runSidebarAction = async (agentName: "cleaning" | "wrangling") => {
+  // Keep the ref pointed at the current handler so node closures stay fresh.
+  runRef.current = (agentType, nodeId, datasetId) => {
+    void runAgentFromNode(agentType, nodeId, datasetId);
+  };
+
+  // Run an agent directly from the floating panel (selected dataset).
+  const runPanelAction = async (agentName: "cleaning" | "wrangling") => {
     if (!selected) return;
     setRunningAction(agentName);
     setActionNotice(`Executing ${agentName} agent on ${selected.name}…`);
@@ -398,9 +524,8 @@ export function PipelineWorkspace() {
             window.clearInterval(poll);
             setRunningAction(null);
             if (run.status === "completed") {
-              setActionNotice(`Agent completed — new derived dataset added.`);
-              const updated = await api.datasets();
-              setDatasets(updated);
+              setActionNotice("Agent completed — new derived dataset added.");
+              setDatasets(await api.datasets());
             } else {
               setActionNotice(`Agent run failed: ${run.message}`);
             }
@@ -412,26 +537,37 @@ export function PipelineWorkspace() {
       }, 800);
     } catch (err) {
       setRunningAction(null);
-      setActionNotice(
-        `Error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      setActionNotice(`Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
-  // Reset layout
+  // Reset positions: datasets by lineage, agents stacked off their source.
   const resetLayout = useCallback(() => {
     const layout = buildLayout(datasets, activeDatasetId);
+    const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+    const seen = new Map<string, number>();
 
-    // Reposition agent nodes below dataset nodes
     const agentNodes = nodes.filter((n) => n.type === "agentNode");
-    const repositioned = agentNodes.map((n, i) => ({
-      ...n,
-      position: { x: 320 + i * 200, y: 350 + (i % 2) * 100 },
-    }));
+    const repositioned = agentNodes.map((n) => {
+      const sourceId = String(n.data?.datasetId ?? "");
+      const sourceNode = byId.get(sourceId);
+      const index = seen.get(sourceId) ?? 0;
+      seen.set(sourceId, index + 1);
+      return {
+        ...n,
+        position: {
+          x: (sourceNode?.position.x ?? 40) + AGENT_X,
+          y: (sourceNode?.position.y ?? 60) + index * AGENT_H,
+        },
+      };
+    });
 
     setNodes([...layout.nodes, ...repositioned]);
     setEdges((prev) => {
-      const agentEdges = prev.filter((e) => e.id.startsWith("e-agent-"));
+      const known = new Set(datasets.map((d) => d.id));
+      const agentEdges = prev.filter(
+        (e) => e.id.startsWith("e-agent-") && known.has(e.source),
+      );
       return [...layout.edges, ...agentEdges];
     });
   }, [datasets, activeDatasetId, nodes, setNodes, setEdges]);
@@ -447,48 +583,39 @@ export function PipelineWorkspace() {
             onClick={() => addAgentNode("Clean Agent", "cleaning")}
           >
             <Plus size={12} />
-            <Sparkles size={12} />
             <span>Clean Agent</span>
           </button>
-          <span className="pipeline-toolbar-sep">+</span>
           <button
             type="button"
             className="pipeline-toolbar-btn"
             onClick={() => addAgentNode("Wrangle Agent", "wrangling")}
           >
             <Plus size={12} />
-            <Wrench size={12} />
             <span>Wrangle Agent</span>
           </button>
-          <span className="pipeline-toolbar-sep">+</span>
           <button
             type="button"
             className="pipeline-toolbar-btn"
             onClick={() => addAgentNode("Feature Eng", "feature_eng")}
           >
             <Plus size={12} />
-            <Sparkles size={12} />
             <span>Feature Eng</span>
           </button>
-          <span className="pipeline-toolbar-sep">+</span>
           <button
             type="button"
             className="pipeline-toolbar-btn"
             onClick={() => addAgentNode("Viz Node", "viz")}
           >
             <Plus size={12} />
-            <BarChart2 size={12} />
             <span>Viz Node</span>
           </button>
         </div>
-        <button
-          type="button"
-          className="pipeline-toolbar-btn reset"
-          onClick={resetLayout}
-        >
-          <RefreshCw size={12} />
-          <span>Reset Layout</span>
-        </button>
+        <div className="pipeline-toolbar-group right">
+          <button type="button" className="pipeline-toolbar-btn reset" onClick={resetLayout}>
+            <RefreshCw size={12} />
+            <span>Reset Layout</span>
+          </button>
+        </div>
       </div>
 
       {/* ─── Action Notice ─── */}
@@ -499,7 +626,7 @@ export function PipelineWorkspace() {
         </div>
       )}
 
-      {/* ─── Canvas + Sidebar ─── */}
+      {/* ─── Canvas ─── */}
       {loading ? (
         <div className="empty" style={{ minHeight: 400 }}>
           <LoaderCircle className="spin" size={24} />
@@ -507,7 +634,6 @@ export function PipelineWorkspace() {
         </div>
       ) : (
         <div className="pipeline-body">
-          {/* React Flow Canvas */}
           <div className="pipeline-canvas-area">
             <ReactFlow
               nodes={nodes}
@@ -517,7 +643,11 @@ export function PipelineWorkspace() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={onNodeClick}
+              onInit={(instance) => {
+                rfRef.current = instance;
+              }}
               fitView
+              fitViewOptions={{ padding: 0.25 }}
               snapToGrid
               snapGrid={[16, 16]}
               deleteKeyCode="Delete"
@@ -537,97 +667,166 @@ export function PipelineWorkspace() {
               <Controls showInteractive={false} />
               <Background gap={18} color="var(--border)" />
             </ReactFlow>
-          </div>
 
-          {/* ─── Right Detail Sidebar ─── */}
-          <aside className="pipeline-detail-sidebar">
-            {selected ? (
-              <>
-                <div className="pipeline-sidebar-header">
-                  <h2 className="mono" style={{ fontSize: 14 }}>
-                    {selected.name}
-                  </h2>
-                  <span
-                    className="pipeline-stage-badge"
-                    style={{
-                      color: stageColors[selected.stage] ?? stageColors.raw,
-                      borderColor:
-                        stageColors[selected.stage] ?? stageColors.raw,
-                      background: `${stageColors[selected.stage] ?? stageColors.raw}18`,
-                    }}
-                  >
-                    {selected.stage.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="pipeline-sidebar-meta">
-                  <span className="pipeline-meta-label">SHAPE</span>
-                  <strong className="mono">
-                    {selected.shape[0].toLocaleString()} ×{" "}
-                    {selected.shape[1]}
-                  </strong>
-                </div>
-
-                <div className="pipeline-sidebar-meta">
-                  <span className="pipeline-meta-label">SOURCE</span>
-                  <strong className="mono" style={{ fontSize: 11 }}>
-                    {selected.source}
-                  </strong>
-                </div>
-
-                <div className="pipeline-sidebar-actions">
-                  <button
-                    className="button primary pipeline-action-btn"
-                    disabled={Boolean(runningAction)}
-                    onClick={() => void runSidebarAction("cleaning")}
-                  >
-                    {runningAction === "cleaning" ? (
-                      <LoaderCircle className="spin" size={13} />
-                    ) : (
-                      <Sparkles size={13} />
-                    )}
-                    Clean Data
-                  </button>
-                  <button
-                    className="button secondary pipeline-action-btn"
-                    disabled={Boolean(runningAction)}
-                    onClick={() => void runSidebarAction("wrangling")}
-                  >
-                    {runningAction === "wrangling" ? (
-                      <LoaderCircle className="spin" size={13} />
-                    ) : (
-                      <Wrench size={13} />
-                    )}
-                    Wrangle Data
-                  </button>
-
-                  <div className="pipeline-sidebar-row">
-                    <Link
-                      href="/explorer"
-                      className="button secondary pipeline-action-btn small"
-                    >
-                      <FileChartColumnIncreasing size={12} />
-                      Profile
-                    </Link>
-                    <Link
-                      href="/chat"
-                      className="button secondary pipeline-action-btn small"
-                    >
-                      <MessageSquare size={12} />
-                      Chat
-                    </Link>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="pipeline-sidebar-empty">
-                <Database size={22} style={{ color: "var(--text-dim)" }} />
-                <p className="mono" style={{ color: "var(--text-dim)" }}>
-                  Click a dataset node to inspect
+            {/* Empty state — only when the workspace has no datasets. */}
+            {datasets.length === 0 && (
+              <div className="pipeline-empty-state">
+                <Database size={26} style={{ color: "var(--text-dim)" }} />
+                <p className="mono">
+                  <strong>Build your data pipeline</strong>
+                  <br />
+                  Load a dataset to start.
                 </p>
+                <Link href="/datasets" className="button secondary">
+                  Go to Datasets
+                </Link>
               </div>
             )}
-          </aside>
+
+            {/* Floating trigger + panel (profile, run actions, chat). */}
+            {selected && (
+              <>
+                <button
+                  type="button"
+                  className={`pipeline-profile-btn ${panelOpen ? "active" : ""}`}
+                  onClick={() => setPanelOpen((o) => !o)}
+                  title={panelOpen ? "Hide dataset panel" : "Show dataset panel"}
+                  aria-label="Toggle dataset panel"
+                  aria-expanded={panelOpen}
+                >
+                  {panelOpen ? <X size={14} /> : <Info size={14} />}
+                </button>
+
+                {panelOpen && (
+                  <div className="pipeline-profile-panel" role="dialog" aria-label="Dataset panel">
+                    <div className="pipeline-profile-header">
+                      <span className="pipeline-profile-title mono">
+                        <BarChart3 size={12} style={{ color: "var(--accent-blue)" }} />
+                        PROFILE
+                      </span>
+                      <button
+                        type="button"
+                        className="topbar-collapse-btn"
+                        onClick={() => setPanelOpen(false)}
+                        aria-label="Close panel"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+
+                    <div className="pipeline-profile-dataset mono" title={selected.name}>
+                      {selected.name}
+                      <span
+                        className="pipeline-stage-badge"
+                        style={{
+                          color: stageColors[selected.stage] ?? stageColors.raw,
+                          borderColor: stageColors[selected.stage] ?? stageColors.raw,
+                          background: `${stageColors[selected.stage] ?? stageColors.raw}18`,
+                          marginLeft: 6,
+                        }}
+                      >
+                        {selected.stage.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {profileLoading ? (
+                      <div className="pipeline-profile-state mono">
+                        <LoaderCircle className="spin" size={13} />
+                        <span>Profiling…</span>
+                      </div>
+                    ) : profileError ? (
+                      <div className="pipeline-profile-state is-error mono">
+                        <AlertCircle size={13} />
+                        <span>{profileError}</span>
+                      </div>
+                    ) : profile ? (
+                      <>
+                        <div className="pipeline-profile-kpis">
+                          <div className="pipeline-profile-kpi">
+                            <span>ROWS</span>
+                            <strong className="mono">
+                              {profile.row_count.toLocaleString()}
+                            </strong>
+                          </div>
+                          <div className="pipeline-profile-kpi">
+                            <span>COLS</span>
+                            <strong className="mono">{profile.col_count}</strong>
+                          </div>
+                          <div className="pipeline-profile-kpi">
+                            <span>MISSING</span>
+                            <strong
+                              className="mono"
+                              style={{
+                                color:
+                                  profile.missing_pct > 0
+                                    ? "var(--warning)"
+                                    : "var(--success)",
+                              }}
+                            >
+                              {profile.missing_pct}%
+                            </strong>
+                          </div>
+                          <div className="pipeline-profile-kpi">
+                            <span>DUPES</span>
+                            <strong className="mono">{profile.duplicate_rows}</strong>
+                          </div>
+                        </div>
+
+                        <div className="pipeline-profile-cols">
+                          {profile.columns.map((c) => (
+                            <div key={c.name} className="pipeline-profile-col mono">
+                              <span className="col-name" title={c.name}>
+                                {c.name}
+                              </span>
+                              <span className="col-kind">{c.kind}</span>
+                              <span
+                                className={c.null_count > 0 ? "col-null warn" : "col-null"}
+                              >
+                                {c.null_count > 0 ? `${c.null_count} null` : "0"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+
+                    <div className="pipeline-profile-actions">
+                      <button
+                        type="button"
+                        className="button primary pipeline-action-btn"
+                        disabled={Boolean(runningAction)}
+                        onClick={() => void runPanelAction("cleaning")}
+                      >
+                        {runningAction === "cleaning" ? (
+                          <LoaderCircle className="spin" size={13} />
+                        ) : (
+                          <Sparkles size={13} />
+                        )}
+                        Clean Data
+                      </button>
+                      <button
+                        type="button"
+                        className="button secondary pipeline-action-btn"
+                        disabled={Boolean(runningAction)}
+                        onClick={() => void runPanelAction("wrangling")}
+                      >
+                        {runningAction === "wrangling" ? (
+                          <LoaderCircle className="spin" size={13} />
+                        ) : (
+                          <Wrench size={13} />
+                        )}
+                        Wrangle Data
+                      </button>
+                      <Link href="/chat" className="button secondary pipeline-action-btn small">
+                        <MessageSquare size={12} />
+                        Chat
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

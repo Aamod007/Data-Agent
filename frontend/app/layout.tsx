@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" suppressHydrationWarning><body><WorkspaceShell>{children}</WorkspaceShell></body></html>;
+  return <html lang="en"><body><WorkspaceShell>{children}</WorkspaceShell></body></html>;
 }

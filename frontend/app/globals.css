@@ -5,54 +5,11 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   DEVELOPER IDE WORKSPACE SYSTEM (THEME.PNG REPLICA)
-   Dark Theme (Default): True Jet Black (#000000) & Charcoal (#080a10 / #0e1117)
-   Light Theme: Alice Blue (#f0f8ff) & Crisp White with refined Red accents
+   DEVELOPER IDE WORKSPACE SYSTEM
+   Single theme: Alice Blue (#f0f8ff) & crisp white with refined red accents.
    ========================================================================== */
 
-:root,
-html[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #000000;
-  --bg-topbar: #07090e;
-  --sidebar-bg: #080a10;
-  --canvas-bg: #000000;
-  --surface: #0b0e14;
-  --surface-raised: #10141e;
-  --surface-hover: #161b27;
-  --surface-selected: #1c2333;
-  --text: #f0f3f8;
-  --text-muted: #8b95a5;
-  --text-dim: #525c6d;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  --border-focus: #60a5fa;
-  --primary: #f0f3f8;
-  --primary-hover: #ffffff;
-  --primary-soft: rgba(255, 255, 255, 0.08);
-  --accent-blue: #3b82f6;
-  --accent-blue-soft: rgba(59, 130, 246, 0.15);
-  --glass-bg: rgba(11, 14, 20, 0.78);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --success: #10b981;
-  --success-soft: rgba(16, 185, 129, 0.14);
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.14);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.14);
-  --code-bg: #05070a;
-  --badge-bg: #10141e;
-  --badge-text: #94a3b8;
-  --badge-border: rgba(255, 255, 255, 0.1);
-  --shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --mono: "JetBrains Mono", "Fira Code", monospace;
-  --sans: "JetBrains Mono", "Inter", -apple-system, sans-serif;
-  --ease: 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-html[data-theme="light"] {
+:root {
   color-scheme: light;
   --bg: #f0f8ff; /* Alice Blue */
   --bg-topbar: #e2eaf4;
@@ -201,7 +158,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--text);
 }
 
-html[data-theme="light"] .topbar-logo-icon {
+.topbar-logo-icon {
   color: var(--primary);
 }
 
@@ -349,25 +306,6 @@ html[data-theme="light"] .topbar-logo-icon {
   background: var(--surface-hover);
 }
 
-.topbar-run-btn {
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-raised);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
-  text-decoration: none;
-}
-.topbar-run-btn:hover:not(:disabled) {
-  background: var(--surface-hover);
-  border-color: var(--border-focus);
-}
-
 /* 2. Three Column Main Body (Fixed Height) */
 .theme-main-body {
   flex: 1;
@@ -446,7 +384,7 @@ html[data-theme="light"] .topbar-logo-icon {
   border: 1px solid var(--border-strong);
 }
 
-html[data-theme="light"] .nav-link-row.active {
+.nav-link-row.active {
   color: var(--primary);
   background: var(--surface-selected);
   border-color: var(--border-strong);
@@ -496,7 +434,7 @@ html[data-theme="light"] .nav-link-row.active {
   background: var(--surface-raised);
   border-color: var(--border-strong);
 }
-html[data-theme="light"] .compact-nav-icon-btn.active {
+.compact-nav-icon-btn.active {
   color: var(--primary);
   background: var(--surface-selected);
 }
@@ -726,7 +664,7 @@ html[data-theme="light"] .compact-nav-icon-btn.active {
   pointer-events: none;
 }
 
-html[data-theme="light"] .hero-glow-sphere {
+.hero-glow-sphere {
   background: radial-gradient(circle, rgba(220, 38, 38, 0.08) 0%, transparent 70%);
 }
 
@@ -743,7 +681,7 @@ html[data-theme="light"] .hero-glow-sphere {
   box-shadow: var(--shadow-sm);
 }
 
-html[data-theme="light"] .hero-cube-icon {
+.hero-cube-icon {
   background: #ffffff;
   color: var(--primary);
   border-color: var(--border-strong);
@@ -2028,11 +1966,8 @@ tbody tr:hover, tbody tr.selected {
   color: var(--text);
 }
 
-.pipeline-toolbar-sep {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 600;
-  user-select: none;
+.pipeline-toolbar-group.right {
+  margin-left: auto;
 }
 
 /* ── Action Notice ── */
@@ -2095,12 +2030,12 @@ tbody tr:hover, tbody tr.selected {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), var(--shadow-sm);
 }
 
-html[data-theme="light"] .pipeline-dataset-node {
+.pipeline-dataset-node {
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
-html[data-theme="light"] .pipeline-dataset-node:hover {
+.pipeline-dataset-node:hover {
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
 }
 
@@ -2130,9 +2065,64 @@ html[data-theme="light"] .pipeline-dataset-node:hover {
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3), var(--shadow-sm);
 }
 
-html[data-theme="light"] .pipeline-agent-node {
+.pipeline-agent-node {
   background: #ffffff;
   border-color: var(--primary);
+}
+
+/* ── Agent node execution states ── */
+.pipeline-agent-node.status-running {
+  border-color: var(--accent-blue);
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), var(--shadow-sm);
+}
+
+.pipeline-agent-node.status-running .pipeline-run-btn {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.pipeline-agent-node.status-success {
+  border-color: var(--success);
+  border-style: solid;
+}
+
+.pipeline-agent-node.status-error {
+  border-color: var(--danger);
+  border-style: solid;
+  box-shadow: 0 0 0 3px var(--danger-soft), var(--shadow-sm);
+}
+
+.pipeline-status-mark {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.pipeline-status-mark.ok {
+  color: var(--success);
+}
+.pipeline-status-mark.bad {
+  color: var(--danger);
+}
+
+/* Collapsed error detail on a failed node — kept out of the default view. */
+.pipeline-node-error {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  font-size: 9px;
+}
+.pipeline-node-error summary {
+  cursor: pointer;
+  color: var(--danger);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.pipeline-node-error p {
+  margin: 4px 0 0;
+  max-height: 80px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-muted);
 }
 
 /* ── Shared Node Elements ── */
@@ -2191,7 +2181,7 @@ html[data-theme="light"] .pipeline-agent-node {
   letter-spacing: 0.06em;
 }
 
-html[data-theme="light"] .pipeline-transform-badge {
+.pipeline-transform-badge {
   color: var(--primary);
   border-color: rgba(220, 38, 38, 0.25);
   background: rgba(220, 38, 38, 0.08);
@@ -2238,106 +2228,348 @@ html[data-theme="light"] .pipeline-transform-badge {
   transform: scale(1.4);
 }
 
-html[data-theme="light"] .pipeline-handle {
+.pipeline-handle {
   background: var(--primary) !important;
 }
 
-/* ── Right Detail Sidebar ── */
-.pipeline-detail-sidebar {
-  width: 240px;
-  flex: 0 0 240px;
-  height: 100%;
-  background: var(--sidebar-bg);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+/* ── Confirm / Delete modal ── */
+.app-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 4, 10, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 200;
   padding: 16px;
+  animation: app-modal-fade 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes app-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.app-modal {
+  width: min(420px, 100%);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px 18px;
+  animation: app-modal-rise 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes app-modal-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.app-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.app-modal-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.app-modal-header .danger-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: var(--danger-soft);
+  color: var(--danger);
+  flex-shrink: 0;
+}
+.app-modal-body {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 4px;
+}
+.app-modal-body strong {
+  color: var(--text);
+  font-weight: 600;
+  word-break: break-word;
+}
+.app-modal-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-soft);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 12px 0 18px;
+}
+.app-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.app-modal-actions .button {
+  min-width: 84px;
+  justify-content: center;
+}
+.app-modal-actions .button.danger {
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid var(--danger);
+}
+.app-modal-actions .button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 80%, #000);
+  border-color: color-mix(in srgb, var(--danger) 80%, #000);
+}
+.app-modal-actions .button.danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.pipeline-sidebar-header {
+/* ── Pipeline: floating Profile trigger + panel ──
+   Keeps the canvas the hero: the button is a 30px circle in the canvas
+   corner, the panel floats above it instead of stealing a permanent column. */
+.pipeline-profile-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease);
+}
+.pipeline-profile-btn:hover {
+  color: var(--text);
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+.pipeline-profile-btn.active {
+  color: var(--text);
+  border-color: var(--accent-blue);
+  background: var(--surface-selected);
+}
+
+.pipeline-profile-panel {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  z-index: 7;
+  width: 268px;
+  max-height: calc(100% - 74px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: app-modal-rise 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pipeline-sidebar-meta {
+.pipeline-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pipeline-profile-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.pipeline-profile-dataset {
+  padding: 8px 12px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-profile-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.pipeline-profile-state.is-error {
+  color: var(--danger);
+}
+
+.pipeline-profile-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 10px 12px;
+}
+.pipeline-profile-kpi {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 12px;
+  padding: 6px 4px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: center;
 }
-
-.pipeline-meta-label {
-  font-size: 9px;
+.pipeline-profile-kpi span {
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
 }
-
-.pipeline-sidebar-meta strong {
-  font-size: 13px;
+.pipeline-profile-kpi strong {
+  font-size: 12px;
   color: var(--text);
 }
 
-.pipeline-sidebar-actions {
+.pipeline-profile-cols {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding: 4px 6px 6px;
+}
+.pipeline-profile-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.pipeline-profile-col:hover {
+  background: var(--surface-hover);
+}
+.pipeline-profile-col .col-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.pipeline-profile-col .col-kind {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.pipeline-profile-col .col-null {
+  color: var(--success);
+}
+.pipeline-profile-col .col-null.warn {
+  color: var(--warning);
+}
+
+/* ── Node source line ── */
+.pipeline-node-source {
+  font-size: 9px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Agent node icon (inherits status color) ── */
+.pipeline-agent-icon {
+  color: var(--accent-blue);
+}
+
+/* ── Empty pipeline state ── */
+.pipeline-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.pipeline-empty-state > * {
+  pointer-events: auto;
+}
+
+.pipeline-empty-state p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.pipeline-empty-state strong {
+  color: var(--text);
+}
+
+/* ── Floating panel action row ── */
+.pipeline-profile-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
-  padding-top: 14px;
+  padding: 10px 12px 12px;
   border-top: 1px solid var(--border);
 }
 
 .pipeline-action-btn {
   width: 100%;
-  min-height: 36px;
+  min-height: 34px;
   font-size: 11px;
 }
 
 .pipeline-action-btn.small {
-  min-height: 32px;
+  min-height: 30px;
   font-size: 10px;
 }
 
-.pipeline-sidebar-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.pipeline-sidebar-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  text-align: center;
-  padding: 20px;
-}
-
-/* Edge styling overrides for pipeline dashed red */
+/* ── Edges: clean, directional ──
+   No !important here — the component sets stroke + markerEnd per edge and
+   this only supplies the light-theme fallback. */
 .pipeline-flow .react-flow__edge-path {
-  stroke: #ef4444 !important;
-  stroke-width: 2px !important;
-  stroke-dasharray: 6 4 !important;
+  stroke-width: 1.5;
 }
 
-html[data-theme="light"] .pipeline-flow .react-flow__edge-path {
-  stroke: var(--primary) !important;
+.pipeline-flow .react-flow__marker path,
+.pipeline-flow marker path {
+  fill: #ef4444;
+  stroke: #ef4444;
 }
 
-.pipeline-flow .react-flow__edge.animated .react-flow__edge-path {
-  stroke: #ef4444 !important;
-  stroke-dasharray: none !important;
+.pipeline-flow .react-flow__edge-path {
+  stroke: var(--primary);
 }
 
-html[data-theme="light"] .pipeline-flow .react-flow__edge.animated .react-flow__edge-path {
-  stroke: var(--primary) !important;
+.pipeline-flow .react-flow__marker path,
+.pipeline-flow marker path {
+  fill: var(--primary);
+  stroke: var(--primary);
 }
 
 /* Results View */

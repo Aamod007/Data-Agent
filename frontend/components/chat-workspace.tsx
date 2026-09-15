@@ -43,7 +43,7 @@ const agentList = [
   { id: "cleaning", label: "Data Cleaning Agent", tag: "CLEAN" },
   { id: "sql", label: "SQL Database Agent", tag: "QUERY" },
   { id: "loader", label: "Data Loader Agent", tag: "FILES" },
-];
+] as const;
 
 export function ChatWorkspace() {
   const {
@@ -152,8 +152,10 @@ export function ChatWorkspace() {
       const queued: AgentRun = {
         run_id: created.run_id,
         status: "queued",
+        message: null,
         artifacts: [],
         logs: [`Task queued for ${agentMode.toUpperCase()} agent.`],
+        route: null,
       };
       setRun(queued);
       cleanup.current?.();

@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { api } from "@/lib/api";
 import type { Dataset, DatasetDetails, DatasetPreview, SampleDataset } from "@/lib/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -39,6 +40,8 @@ export function DatasetWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [showDirInput, setShowDirInput] = useState(false);
   const [dirPath, setDirPath] = useState("C:\\Users\\yashv\\Desktop\\data_datathon");
+  const [pendingDelete, setPendingDelete] = useState<Dataset | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadDatasets = async () => {
@@ -55,9 +58,18 @@ export function DatasetWorkspace() {
     api.samples().then(setSamples).catch(() => undefined);
   }, []);
 
+  // Adopt the active dataset only while it still exists in the loaded list.
+  // Without the membership check a selection that no longer exists (deleted
+  // here, in the pipeline, or server-side) is re-adopted and its preview fetch
+  // 404s, leaving a sticky "Dataset not found" banner.
   useEffect(() => {
-    if (!selectedId && activeDatasetId) setSelectedId(activeDatasetId);
-  }, [activeDatasetId, selectedId]);
+    if (selectedId && datasets.some((d) => d.id === selectedId)) return;
+    const next =
+      activeDatasetId && datasets.some((d) => d.id === activeDatasetId)
+        ? activeDatasetId
+        : datasets[0]?.id ?? null;
+    if (next !== selectedId) setSelectedId(next);
+  }, [activeDatasetId, selectedId, datasets]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -136,14 +148,24 @@ export function DatasetWorkspace() {
     }
   };
 
-  const remove = async (dataset: Dataset) => {
-    if (!window.confirm(`Remove ${dataset.name}?`)) return;
+  const confirmRemove = async () => {
+    if (!pendingDelete) return;
+    const removedId = pendingDelete.id;
+    setDeleting(true);
+    setError(null);
     try {
-      await api.remove(dataset.id);
-      if (selectedId === dataset.id) setSelectedId(null);
+      await api.remove(removedId);
+      setPendingDelete(null);
+      // Refresh the store BEFORE clearing the selection. Clearing first leaves a
+      // render where the selection is empty but the store still lists the
+      // deleted dataset as active, so the selection effect re-adopts it and the
+      // preview effect 404s. The refresh below lets the effect pick a live id.
       await loadDatasets();
+      if (selectedId === removedId) setSelectedId(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove dataset.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -358,7 +380,7 @@ export function DatasetWorkspace() {
                         aria-label={`Delete ${dataset.name}`}
                         onClick={(event) => {
                           event.stopPropagation();
-                          void remove(dataset);
+                          setPendingDelete(dataset);
                         }}
                       >
                         <Trash2 size={15} />
@@ -371,6 +393,23 @@ export function DatasetWorkspace() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete dataset?"
+        body={
+          <>
+            Are you sure you want to delete <strong>{pendingDelete?.name}</strong>?
+          </>
+        }
+        warning="This action cannot be undone."
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={confirmRemove}
+        onCancel={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+      />
 
       {preview && details && (
         <section className="card preview-card">

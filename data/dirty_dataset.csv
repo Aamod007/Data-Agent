@@ -1,0 +1,21 @@
+id,customer_name,email,signup_date,age,country,total_spend,is_subscribed
+1,Alice Johnson,alice@example.com,2024-01-15,34,USA,1245.5,yes
+2,bob smith,bob@example.COM,2024-02-03,28,usa,890.0,Yes
+3,CHARLIE DAVIS,charlie@example.com,2024-02-14,,UK,2100.75,no
+1,Alice Johnson,alice@example.com,2024-01-15,34,USA,1245.5,yes
+5,Diana Miller,diana.miller@example.com,2024-03-08,42,Canada,560.25,no
+6,evan Wright,,2024-03-22,31,USA,0,no
+7,Frank Lopez,frank@example.com,,45,Mexico,1890.0,yes
+8,grace lee,grace@example.com,2024-04-01,29,USA,725.0,no
+9,Henry Park,henry@example.com,2024-04-12,38,USA,3420.5,yes
+10,isabella ross,isabella@example.com,2024-04-19,27,USA,455.0,no
+11,JACK THOMAS,jack@example.com,2024-05-02,52,UK,2890.25,yes
+12,karen young,karen@example.com,2024-05-15,33,usa,610.5,no
+13,liam scott,liam@example.com,2024-05-28,41,Australia,1180.0,yes
+14,MONICA BAKER,monica@example.com,2024-06-05,,USA,0,no
+15,nathan green,nathan@example.com,2024-06-12,36,USA,845.0,yes
+16,Olivia Carter,olivia@example.com,2024-06-19,29,USA,510.0,no
+17,paul adams,paul@example.com,2024-07-01,45,UK,1670.0,yes
+18,Quinn Foster,quinn@example.com,2024-07-14,33,USA,295.0,no
+19,Rachel Diaz,rachel@example.com,2024-07-22,28,USA,2120.5,yes
+20,Samuel Wright,sam@example.com,2024-08-03,40,USA,1785.0,no

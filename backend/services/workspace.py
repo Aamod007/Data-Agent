@@ -265,8 +265,16 @@ class Workspace:
             dataset = self._datasets.pop(dataset_id, None)
             if self._active_dataset_id == dataset_id:
                 self._active_dataset_id = next(iter(self._datasets), None)
+        # Only delete files this workspace owns (uploads it wrote). Sample datasets
+        # and directory loads point at the user's/bundled originals — unlinking
+        # those would destroy the source and break re-loading the sample forever.
         if dataset and dataset.parent_id is None:
-            dataset.path.unlink(missing_ok=True)
+            try:
+                owned = dataset.path.resolve().is_relative_to(UPLOADS_DIR.resolve())
+            except (OSError, ValueError):
+                owned = False
+            if owned:
+                dataset.path.unlink(missing_ok=True)
 
     def set_active(self, dataset_id: str) -> DatasetSummary:
         dataset = self.get_dataset(dataset_id)

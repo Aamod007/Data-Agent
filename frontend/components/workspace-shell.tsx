@@ -11,15 +11,12 @@ import {
   HardDrive,
   Home,
   LayoutDashboard,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRight,
-  Play,
   Plus,
   Search,
   Settings,
-  Sun,
   Upload,
   X,
 } from "lucide-react";
@@ -29,16 +26,6 @@ import { InspectorPanel } from "@/components/inspector-panel";
 import { api } from "@/lib/api";
 import type { Dataset } from "@/lib/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-
-const agentOptions = [
-  { id: "analyst", label: "Pandas Analyst (Auto-Route)" },
-  { id: "eda", label: "EDA Tools Agent" },
-  { id: "visualization", label: "Data Visualization Agent" },
-  { id: "wrangling", label: "Data Wrangling Agent" },
-  { id: "cleaning", label: "Data Cleaning Agent" },
-  { id: "sql", label: "SQL Database Agent" },
-  { id: "loader", label: "Data Loader Agent" },
-];
 
 const navItems = [
   { href: "/chat", label: "Workspace", icon: Home },
@@ -58,24 +45,19 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     activeDatasetId,
     leftSidebarOpen,
     inspectorOpen,
-    selectedAgent,
     setDatasets,
     setActive,
     toggleLeftSidebar,
     toggleInspector,
-    setSelectedAgent,
   } = useWorkspaceStore();
 
-  const [theme, setTheme] = useState<"dark" | "light" | "system">("dark");
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
   const [datasetSearch, setDatasetSearch] = useState("");
-  const [topbarAgentMenuOpen, setTopbarAgentMenuOpen] = useState(false);
   const [topbarDatasetMenuOpen, setTopbarDatasetMenuOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const topbarAgentRef = useRef<HTMLDivElement>(null);
   const topbarDatasetRef = useRef<HTMLDivElement>(null);
 
   // Load datasets on mount
@@ -83,12 +65,8 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     api.datasets().then(setDatasets).catch(() => undefined);
   }, [setDatasets]);
 
-  // Theme & sidebar width setup
+  // Sidebar width setup
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("data-agents-theme") as "dark" | "light" | "system") || "dark";
-    setTheme(savedTheme);
-    applyTheme(savedTheme);
-
     const savedWidth = localStorage.getItem("data-agents-sidebar-width");
     if (savedWidth) {
       const w = Number(savedWidth);
@@ -128,9 +106,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (topbarAgentRef.current && !topbarAgentRef.current.contains(e.target as Node)) {
-        setTopbarAgentMenuOpen(false);
-      }
       if (topbarDatasetRef.current && !topbarDatasetRef.current.contains(e.target as Node)) {
         setTopbarDatasetMenuOpen(false);
       }
@@ -138,23 +113,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const applyTheme = (t: "dark" | "light" | "system") => {
-    let resolved: "dark" | "light" = "dark";
-    if (t === "system") {
-      resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } else {
-      resolved = t;
-    }
-    document.documentElement.dataset.theme = resolved;
-    localStorage.setItem("data-agents-theme", t);
-  };
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    applyTheme(next);
-  };
 
   const activeDataset = useMemo(
     () => datasets.find((d) => d.id === activeDatasetId) ?? datasets[0] ?? null,
@@ -188,9 +146,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       setUploading(false);
     }
   };
-
-  const activeAgentLabel =
-    agentOptions.find((a) => a.id === selectedAgent)?.label ?? "Pandas Analyst (Auto-Route)";
 
   return (
     <div className="theme-app-container">
@@ -232,10 +187,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               className="topbar-pill-select-btn"
-              onClick={() => {
-                setTopbarDatasetMenuOpen((o) => !o);
-                setTopbarAgentMenuOpen(false);
-              }}
+              onClick={() => setTopbarDatasetMenuOpen((o) => !o)}
             >
               <FolderOpen size={12} className="pill-icon" />
               <span className="pill-prefix">Workspace &gt;</span>
@@ -272,61 +224,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
-
-          {/* Agent Selector */}
-          <div className="topbar-custom-dropdown-wrap" ref={topbarAgentRef}>
-            <button
-              type="button"
-              className="topbar-pill-select-btn"
-              onClick={() => {
-                setTopbarAgentMenuOpen((o) => !o);
-                setTopbarDatasetMenuOpen(false);
-              }}
-            >
-              <span className="pill-prefix">Agent:</span>
-              <span className="pill-active-val">{activeAgentLabel}</span>
-              <ChevronDown size={11} className="pill-arrow" />
-            </button>
-
-            {topbarAgentMenuOpen && (
-              <div className="topbar-menu-popover">
-                <div className="topbar-menu-header mono">SELECT AGENT PIPELINE</div>
-                {agentOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`topbar-menu-item mono ${selectedAgent === opt.id ? "active" : ""}`}
-                    onClick={() => {
-                      setSelectedAgent(opt.id);
-                      setTopbarAgentMenuOpen(false);
-                    }}
-                  >
-                    <span>{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Topbar Right Tools */}
         <div className="topbar-right">
-          <button
-            type="button"
-            className="topbar-icon-btn"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-
           <Link href="/datasets" className="topbar-icon-btn" title="Open Datasets view">
             <Grid size={14} />
-          </Link>
-
-          <Link href="/chat" className="topbar-run-btn">
-            <Play size={12} />
-            <span>Run</span>
           </Link>
 
           <button

@@ -1,0 +1,9 @@
+model_id,model_name,category,frame_material,wheel_size,weight_kg,msrp_usd,electric
+M-100,Trailblazer 100,Mountain,Aluminum,29,12.4,899,no
+M-101,Trailblazer 200,Mountain,Carbon,29,10.1,1499,no
+M-200,Cruiser 300,Cruiser,Steel,26,14.8,649,no
+M-201,Cruiser 400,Cruiser,Aluminum,27.5,13.2,799,no
+M-300,Speedster 500,Road,Carbon,28,8.4,1899,no
+M-301,Speedster 600,Road,Carbon,28,8.0,2399,no
+M-400,Volt 700,Hybrid,Aluminum,27.5,15.6,1799,yes
+M-401,Volt 800,Hybrid,Aluminum,27.5,16.2,2099,yes

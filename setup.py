@@ -28,9 +28,12 @@ setup(
     packages=find_packages(),
     install_requires=parse_requirements("requirements.txt"),
     extras_require={
+        # Local Ollama models (https://ollama.com). Optional; only required if
+        # the user picks the "ollama" provider in Settings.
+        "ollama": ["langchain-ollama"],
         "machine_learning": ["h2o", "mlflow"],
         "data_science": ["pytimetk", "missingno", "sweetviz"],
-        "all": ["h2o", "mlflow", "pytimetk", "missingno", "sweetviz"],
+        "all": ["h2o", "mlflow", "pytimetk", "missingno", "sweetviz", "langchain-ollama"],
     },
     python_requires=">=3.9",
     classifiers=[

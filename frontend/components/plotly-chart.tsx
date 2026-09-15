@@ -18,9 +18,8 @@ export function PlotlyChart({ figure }: { figure: unknown }) {
       if (!container.current || !figure) return;
       plotly = (await import("plotly.js-dist-min")).default as PlotlyModule;
 
-      const isDark = document.documentElement.dataset.theme !== "light";
-      const fontColor = isDark ? "#8b95a5" : "#475569";
-      const gridColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)";
+      const fontColor = "#475569";
+      const gridColor = "rgba(0, 0, 0, 0.06)";
 
       const normalized = figure as {
         data?: Record<string, unknown>[];
@@ -44,9 +43,9 @@ export function PlotlyChart({ figure }: { figure: unknown }) {
           tickfont: { family: "JetBrains Mono, monospace", size: 9, color: fontColor },
         },
         hoverlabel: {
-          bgcolor: isDark ? "#141924" : "#ffffff",
-          bordercolor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-          font: { family: "JetBrains Mono, monospace", size: 11, color: isDark ? "#ffffff" : "#0f172a" },
+          bgcolor: "#ffffff",
+          bordercolor: "rgba(0,0,0,0.15)",
+          font: { family: "JetBrains Mono, monospace", size: 11, color: "#0f172a" },
         },
       };
 
