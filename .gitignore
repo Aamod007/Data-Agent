@@ -181,3 +181,8 @@ mlflow_artifacts/
 
 # Conda Environments
 environment_ds4b_301p_dev.yml
+
+# React workspace build output
+frontend/node_modules/
+frontend/.next/
+temp/workspace_uploads/

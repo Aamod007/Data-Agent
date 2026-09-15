@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+type PlotlyModule = {
+  react: (element: HTMLElement, data: unknown[], layout: object, config: object) => Promise<void>;
+  purge: (element: HTMLElement) => void;
+};
+
+export function PlotlyChart({ figure }: { figure: unknown }) {
+  const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let plotly: PlotlyModule | undefined;
+
+    const render = async () => {
+      if (!container.current || !figure) return;
+      plotly = (await import("plotly.js-dist-min")).default as PlotlyModule;
+
+      const isDark = document.documentElement.dataset.theme !== "light";
+      const fontColor = isDark ? "#8b95a5" : "#475569";
+      const gridColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)";
+
+      const normalized = figure as {
+        data?: Record<string, unknown>[];
+        layout?: Record<string, unknown>;
+        config?: Record<string, unknown>;
+      };
+
+      const baseLayout: Record<string, unknown> = {
+        paper_bgcolor: "transparent",
+        plot_bgcolor: "transparent",
+        font: { family: "JetBrains Mono, Inter, monospace", color: fontColor, size: 11 },
+        margin: { t: 30, l: 40, r: 20, b: 40 },
+        xaxis: {
+          gridcolor: gridColor,
+          linecolor: gridColor,
+          tickfont: { family: "JetBrains Mono, monospace", size: 9, color: fontColor },
+        },
+        yaxis: {
+          gridcolor: gridColor,
+          linecolor: gridColor,
+          tickfont: { family: "JetBrains Mono, monospace", size: 9, color: fontColor },
+        },
+        hoverlabel: {
+          bgcolor: isDark ? "#141924" : "#ffffff",
+          bordercolor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+          font: { family: "JetBrains Mono, monospace", size: 11, color: isDark ? "#ffffff" : "#0f172a" },
+        },
+      };
+
+      const mergedLayout = {
+        ...baseLayout,
+        ...(normalized.layout ?? {}),
+        xaxis: {
+          ...((baseLayout.xaxis as object) ?? {}),
+          ...((normalized.layout?.xaxis as object) ?? {}),
+        },
+        yaxis: {
+          ...((baseLayout.yaxis as object) ?? {}),
+          ...((normalized.layout?.yaxis as object) ?? {}),
+        },
+        paper_bgcolor: "transparent",
+        plot_bgcolor: "transparent",
+      };
+
+      if (mounted && container.current) {
+        await plotly.react(container.current, normalized.data ?? [], mergedLayout, {
+          responsive: true,
+          displaylogo: false,
+          modeBarButtonsToRemove: ["lasso2d", "select2d"],
+          ...normalized.config,
+        });
+      }
+    };
+
+    void render();
+
+    return () => {
+      mounted = false;
+      if (container.current && plotly) plotly.purge(container.current);
+    };
+  }, [figure]);
+
+  return <div className="plotly" ref={container} aria-label="Interactive Plotly chart" />;
+}
