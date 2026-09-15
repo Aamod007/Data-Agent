@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { Dataset } from "@/lib/types";
 
-export type InspectorTabType = "overview" | "eda" | "pipeline" | "schema";
+export type InspectorTabType = "overview" | "eda" | "schema";
 
 type WorkspaceState = {
   datasets: Dataset[];

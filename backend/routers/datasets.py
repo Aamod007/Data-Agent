@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from backend.models import DatasetDetails, DatasetPreview, DatasetSummary
 from backend.services.workspace import records_for_json, workspace
@@ -43,6 +44,26 @@ async def upload_dataset(file: Annotated[UploadFile, File(...)]) -> DatasetSumma
         return dataset.summary(workspace.active_dataset_id())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class LoadLocalRequest(BaseModel):
+    directory: str
+
+
+@router.post("/load-local", response_model=list[DatasetSummary])
+def load_local_directory(payload: LoadLocalRequest) -> list[DatasetSummary]:
+    """Load all supported tabular files from a local directory path."""
+    directory = payload.directory.strip()
+    if not directory:
+        raise HTTPException(status_code=422, detail="No directory path provided.")
+    try:
+        loaded = workspace.add_from_local_directory(directory)
+        return [ds.summary(workspace.active_dataset_id()) for ds in loaded]
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
 
 @router.get("/{dataset_id}", response_model=DatasetPreview)

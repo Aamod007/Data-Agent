@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 import uuid
@@ -66,10 +67,20 @@ class AgentRunner:
         from langchain_openai import ChatOpenAI
 
         config = workspace.config()
+        if config.provider == "nvidia":
+            api_key = config.api_key or os.environ.get("NVIDIA_API_KEY")
+            if not api_key:
+                raise ValueError("Add an NVIDIA API key in Settings or set NVIDIA_API_KEY in environment before running an agent.")
+            return ChatOpenAI(
+                model=config.model or "meta/llama-3.2-11b-vision-instruct",
+                base_url=config.base_url or "https://integrate.api.nvidia.com/v1",
+                api_key=api_key,
+                temperature=0.1,
+            )
         if config.provider == "ollama":
             from langchain_ollama import ChatOllama
 
-            return ChatOllama(model=config.model, base_url=config.base_url or None)
+            return ChatOllama(model=config.model or "llama3", base_url=config.base_url or None)
         if config.provider == "lm_studio":
             return ChatOpenAI(
                 model=config.model,
@@ -80,11 +91,12 @@ class AgentRunner:
             return ChatOpenAI(
                 model=config.model,
                 base_url=config.base_url or "https://openrouter.ai/api/v1",
-                api_key=config.api_key,
+                api_key=config.api_key or os.environ.get("OPENROUTER_API_KEY"),
             )
-        if not config.api_key:
+        api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
+        if not api_key:
             raise ValueError("Add an API key in Settings before running an agent.")
-        return ChatOpenAI(model=config.model, api_key=config.api_key)
+        return ChatOpenAI(model=config.model, api_key=api_key)
 
     @staticmethod
     def _latest_message(response: dict[str, Any]) -> str | None:

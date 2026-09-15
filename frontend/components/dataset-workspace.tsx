@@ -6,6 +6,7 @@ import {
   Download,
   FileChartColumnIncreasing,
   FileUp,
+  FolderOpen,
   LoaderCircle,
   MessageSquare,
   Plus,
@@ -36,6 +37,8 @@ export function DatasetWorkspace() {
   const [tab, setTab] = useState<"data" | "schema" | "stats" | "code">("data");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDirInput, setShowDirInput] = useState(false);
+  const [dirPath, setDirPath] = useState("C:\\Users\\yashv\\Desktop\\data_datathon");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadDatasets = async () => {
@@ -105,6 +108,24 @@ export function DatasetWorkspace() {
     }
   };
 
+  const loadDirectory = async (targetDir: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const loaded = await api.loadLocal(targetDir);
+      await loadDatasets();
+      if (loaded.length > 0) {
+        setSelectedId(loaded[0].id);
+        setActive(loaded[0].id);
+      }
+      setShowDirInput(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load directory.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const activate = async (dataset: Dataset) => {
     try {
       await api.setActive(dataset.id);
@@ -134,7 +155,7 @@ export function DatasetWorkspace() {
           <h1>Dataset Management</h1>
           <p className="muted">Upload tabular datasets or load quick start samples into workspace memory.</p>
         </div>
-        <div className="heading-actions">
+        <div className="heading-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <input
             ref={fileRef}
             hidden
@@ -146,6 +167,15 @@ export function DatasetWorkspace() {
               event.currentTarget.value = "";
             }}
           />
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => setShowDirInput((prev) => !prev)}
+            title="Load all tabular datasets from a local directory"
+          >
+            <FolderOpen size={15} />
+            <span className="mono">LOAD FOLDER</span>
+          </button>
           <button className="button primary" disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? <LoaderCircle size={15} className="spin" /> : <FileUp size={15} />}
             <span className="mono">{busy ? "IMPORTING…" : "UPLOAD FILE"}</span>
@@ -153,29 +183,82 @@ export function DatasetWorkspace() {
         </div>
       </div>
 
-      {error && <div role="alert" className="error-banner mono">{error}</div>}
-
-      {samples.length > 0 && (
-        <section className="sample-bar card">
-          <div className="sample-bar-header mono">
-            <span>QUICK SAMPLES (CLICK TO LOAD)</span>
-          </div>
-          <div className="sample-chips">
-            {samples.map((s) => (
-              <button
-                key={s.id}
-                className="sample-chip mono"
-                disabled={busy}
-                onClick={() => void loadSample(s.id)}
-                title={s.description}
-              >
-                <Plus size={12} aria-hidden="true" />
-                <span>{s.name}</span>
-              </button>
-            ))}
+      {showDirInput && (
+        <section className="card" style={{ padding: "12px 16px", marginBottom: "16px", background: "var(--card-bg-elevated, #161a23)", borderColor: "var(--border-color, #272d3b)" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+              LOCAL DIRECTORY:
+            </span>
+            <input
+              className="mono"
+              style={{
+                flex: "1 1 300px",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid var(--border-color, #333)",
+                background: "var(--bg-secondary, #0d1117)",
+                color: "inherit",
+                fontSize: 12,
+              }}
+              value={dirPath}
+              onChange={(e) => setDirPath(e.target.value)}
+              placeholder="e.g. C:\Users\yashv\Desktop\data_datathon"
+              disabled={busy}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && dirPath.trim()) void loadDirectory(dirPath.trim());
+              }}
+            />
+            <button
+              className="button primary"
+              disabled={busy || !dirPath.trim()}
+              onClick={() => void loadDirectory(dirPath.trim())}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {busy ? <LoaderCircle size={14} className="spin" /> : <FolderOpen size={14} />}
+              <span className="mono">LOAD ALL FILES</span>
+            </button>
+            <button
+              className="button ghost"
+              disabled={busy}
+              onClick={() => setShowDirInput(false)}
+            >
+              Cancel
+            </button>
           </div>
         </section>
       )}
+
+      {error && <div role="alert" className="error-banner mono">{error}</div>}
+
+      <section className="sample-bar card">
+        <div className="sample-bar-header mono">
+          <span>QUICK LOAD / SAMPLES (CLICK TO LOAD)</span>
+        </div>
+        <div className="sample-chips">
+          <button
+            className="sample-chip mono"
+            disabled={busy}
+            onClick={() => void loadDirectory("C:\\Users\\yashv\\Desktop\\data_datathon")}
+            title="Load all datathon data files from C:\Users\yashv\Desktop\data_datathon"
+            style={{ borderColor: "var(--accent-blue, #3b82f6)", background: "rgba(59, 130, 246, 0.1)" }}
+          >
+            <FolderOpen size={12} aria-hidden="true" style={{ color: "#3b82f6" }} />
+            <span style={{ fontWeight: 600, color: "#60a5fa" }}>Datathon Data Folder</span>
+          </button>
+          {samples.map((s) => (
+            <button
+              key={s.id}
+              className="sample-chip mono"
+              disabled={busy}
+              onClick={() => void loadSample(s.id)}
+              title={s.description}
+            >
+              <Plus size={12} aria-hidden="true" />
+              <span>{s.name}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="card dataset-card">
         <div className="card-header dataset-toolbar">

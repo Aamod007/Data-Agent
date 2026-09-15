@@ -34,10 +34,10 @@ class DatasetDetails(BaseModel):
 
 
 class ConfigUpdate(BaseModel):
-    provider: Literal["openai", "ollama", "lm_studio", "openrouter"] = "openai"
-    model: str = "gpt-4o-mini"
+    provider: Literal["openai", "ollama", "lm_studio", "openrouter", "nvidia"] = "nvidia"
+    model: str = "meta/llama-3.2-11b-vision-instruct"
     api_key: str | None = Field(default=None, exclude=True)
-    base_url: str | None = None
+    base_url: str | None = "https://integrate.api.nvidia.com/v1"
     sql_url: str = "sqlite:///:memory:"
 
 

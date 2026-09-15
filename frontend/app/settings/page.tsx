@@ -6,6 +6,10 @@ import { api } from "@/lib/api";
 import type { AppConfig } from "@/lib/types";
 
 const providerDefaults: Record<AppConfig["provider"], { model: string; base_url: string }> = {
+  nvidia: {
+    model: "meta/llama-3.2-11b-vision-instruct",
+    base_url: "https://integrate.api.nvidia.com/v1",
+  },
   ollama: {
     model: "llama3",
     base_url: "http://localhost:11434",
@@ -25,10 +29,10 @@ const providerDefaults: Record<AppConfig["provider"], { model: string; base_url:
 };
 
 const defaults: AppConfig = {
-  provider: "openai",
-  model: "gpt-4o-mini",
-  has_api_key: false,
-  base_url: "",
+  provider: "nvidia",
+  model: "meta/llama-3.2-11b-vision-instruct",
+  has_api_key: true,
+  base_url: "https://integrate.api.nvidia.com/v1",
   sql_url: "sqlite:///:memory:",
 };
 
@@ -52,7 +56,7 @@ export default function SettingsPage() {
 
   const handleProviderChange = (newProvider: AppConfig["provider"]) => {
     const defaultSettings = providerDefaults[newProvider] || providerDefaults.openai;
-    setConfig((prev) => ({
+    setConfig((prev: AppConfig) => ({
       ...prev,
       provider: newProvider,
       model: defaultSettings.model,
@@ -105,6 +109,7 @@ export default function SettingsPage() {
               value={config.provider}
               onChange={(e) => handleProviderChange(e.target.value as AppConfig["provider"])}
             >
+              <option value="nvidia">NVIDIA NIM (meta/llama-3.2-11b-vision-instruct, etc.)</option>
               <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
               <option value="ollama">Ollama (Local Models via localhost:11434)</option>
               <option value="lm_studio">LM Studio (Local Server 1234)</option>

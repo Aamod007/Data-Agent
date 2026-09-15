@@ -186,3 +186,9 @@ environment_ds4b_301p_dev.yml
 frontend/node_modules/
 frontend/.next/
 temp/workspace_uploads/
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Tooling / Claude
+.claude/
+

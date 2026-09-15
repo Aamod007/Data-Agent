@@ -1,30 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import {
-  AlertCircle,
   BarChart3,
   Code2,
   Database,
-  FileCode2,
-  FileSpreadsheet,
   FileText,
-  GitBranch,
   Grid,
-  Layers,
   LoaderCircle,
-  PanelRightClose,
-  Play,
   TableProperties,
-  Wrench,
   X,
   Zap,
 } from "lucide-react";
 import { PlotlyChart } from "@/components/plotly-chart";
 import { api } from "@/lib/api";
-import type { Dataset, DatasetDetails, DatasetPreview, DatasetProfile } from "@/lib/types";
+import type { Dataset, DatasetDetails, DatasetProfile } from "@/lib/types";
 import { type InspectorTabType, useWorkspaceStore } from "@/stores/workspace-store";
 
 const stageColors: Record<string, string> = {
@@ -49,7 +39,6 @@ export function InspectorPanel() {
   const [profile, setProfile] = useState<DatasetProfile | null>(null);
   const [details, setDetails] = useState<DatasetDetails | null>(null);
   const [loading, setLoading] = useState(false);
-  const [runningAction, setRunningAction] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const activeDataset = useMemo(
@@ -75,11 +64,7 @@ export function InspectorPanel() {
       .finally(() => setLoading(false));
   }, [activeDataset]);
 
-  // DAG nodes and edges
-  const { nodes, edges } = useMemo(
-    () => buildDagGraph(datasets, activeDatasetId),
-    [datasets, activeDatasetId]
-  );
+
 
   // Missing values figure (Clean styled for theme.png)
   const missingFigure = useMemo(() => {
@@ -160,44 +145,7 @@ export function InspectorPanel() {
     };
   }, [profile]);
 
-  const runTransformAction = async (agentName: "cleaning" | "wrangling") => {
-    if (!activeDataset) return;
-    setRunningAction(agentName);
-    setActionNotice(`Executing ${agentName} agent on ${activeDataset.name}…`);
-    try {
-      const instructions =
-        agentName === "cleaning"
-          ? "Clean this dataset: handle missing values, format dates and numerics, and return cleaned data."
-          : "Wrangle and transform dataset into a clean analytical format.";
-      const { run_id } = await api.invoke({
-        dataset_id: activeDataset.id,
-        agent: agentName,
-        instructions,
-      });
-      const poll = window.setInterval(async () => {
-        try {
-          const run = await api.run(run_id);
-          if (run.status === "completed" || run.status === "failed") {
-            window.clearInterval(poll);
-            setRunningAction(null);
-            if (run.status === "completed") {
-              setActionNotice(`Generated new ${agentName} dataset.`);
-              const updated = await api.datasets();
-              setDatasets(updated);
-            } else {
-              setActionNotice(`Run failed: ${run.message}`);
-            }
-          }
-        } catch {
-          window.clearInterval(poll);
-          setRunningAction(null);
-        }
-      }, 800);
-    } catch (err) {
-      setRunningAction(null);
-      setActionNotice(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
+
 
   if (!inspectorOpen) return null;
 
@@ -219,13 +167,6 @@ export function InspectorPanel() {
             onClick={() => setInspectorTab("eda")}
           >
             EDA &amp; Metrics
-          </button>
-          <button
-            type="button"
-            className={`inspector-header-tab ${inspectorTab === "pipeline" ? "active" : ""}`}
-            onClick={() => setInspectorTab("pipeline")}
-          >
-            Pipeline DAG
           </button>
           <button
             type="button"
@@ -391,53 +332,6 @@ export function InspectorPanel() {
               </div>
             )}
 
-            {/* PIPELINE DAG TAB */}
-            {inspectorTab === "pipeline" && (
-              <div className="inspector-card-group">
-                <div className="inspector-group-title">
-                  <GitBranch size={13} />
-                  <span>Transformation DAG</span>
-                </div>
-
-                <div className="inspector-dag-canvas">
-                  <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    fitView
-                    onNodeClick={(_, node) => {
-                      const found = datasets.find((d) => d.id === node.id);
-                      if (found) setActive(found.id);
-                    }}
-                  >
-                    <Controls showInteractive={false} />
-                    <Background gap={16} color="var(--border)" />
-                  </ReactFlow>
-                </div>
-
-                <div className="inspector-actions-row">
-                  <button
-                    type="button"
-                    className="button primary"
-                    style={{ flex: 1, minHeight: 32, fontSize: 10 }}
-                    disabled={Boolean(runningAction)}
-                    onClick={() => void runTransformAction("cleaning")}
-                  >
-                    {runningAction === "cleaning" ? <LoaderCircle className="spin" size={12} /> : <Play size={12} />}
-                    CLEAN
-                  </button>
-                  <button
-                    type="button"
-                    className="button secondary"
-                    style={{ flex: 1, minHeight: 32, fontSize: 10 }}
-                    disabled={Boolean(runningAction)}
-                    onClick={() => void runTransformAction("wrangling")}
-                  >
-                    {runningAction === "wrangling" ? <LoaderCircle className="spin" size={12} /> : <Wrench size={12} />}
-                    WRANGLE
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* SCHEMA TAB */}
             {inspectorTab === "schema" && details && (
@@ -484,57 +378,3 @@ export function InspectorPanel() {
   );
 }
 
-function buildDagGraph(datasets: Dataset[], active: string | null): { nodes: Node[]; edges: Edge[] } {
-  const levels = new Map<string, number>();
-  const depth = (dataset: Dataset): number => {
-    if (levels.has(dataset.id)) return levels.get(dataset.id)!;
-    const parent = datasets.find((item) => item.id === dataset.parent_id);
-    const val = parent ? depth(parent) + 1 : 0;
-    levels.set(dataset.id, val);
-    return val;
-  };
-
-  const buckets = new Map<number, number>();
-  const nodes = datasets.map((dataset) => {
-    const level = depth(dataset);
-    const index = buckets.get(level) ?? 0;
-    buckets.set(level, index + 1);
-    const color = stageColors[dataset.stage] ?? stageColors.raw;
-    const isActive = dataset.id === active;
-
-    return {
-      id: dataset.id,
-      position: { x: level * 160 + 15, y: index * 80 + 15 },
-      data: {
-        label: (
-          <div className="dag-node-pill">
-            <span className="dag-dot" style={{ background: color }} />
-            <span className="mono" style={{ fontSize: 10, fontWeight: 600 }}>{dataset.name}</span>
-          </div>
-        ),
-      },
-      style: {
-        border: `1px solid ${isActive ? "var(--primary)" : "var(--border-strong)"}`,
-        borderRadius: 6,
-        background: "var(--surface)",
-        color: "var(--text)",
-        width: 140,
-        padding: "4px 8px",
-        boxShadow: isActive ? "0 0 0 2px rgba(59, 130, 246, 0.4)" : "none",
-      },
-    };
-  });
-
-  return {
-    nodes,
-    edges: datasets
-      .filter((d) => d.parent_id)
-      .map((d) => ({
-        id: `${d.parent_id}-${d.id}`,
-        source: d.parent_id!,
-        target: d.id,
-        animated: d.id === active,
-        style: { stroke: "var(--border-strong)", strokeWidth: 1.5 },
-      })),
-  };
-}

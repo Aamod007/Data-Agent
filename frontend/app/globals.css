@@ -1967,54 +1967,377 @@ tbody tr:hover, tbody tr.selected {
   margin-top: 16px;
 }
 
-/* Pipeline View Layout (Image #14 Fixed) */
-.pipeline-page {
-  max-width: 1400px;
-}
-
-.pipeline-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 14px;
-  min-height: 560px;
-}
-
-.pipeline-canvas {
-  min-height: 560px;
+/* Pipeline View — Full Canvas Node Graph Editor */
+.pipeline-workspace-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
-  position: relative;
+}
+
+/* ── Toolbar ── */
+.pipeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.node-detail {
-  height: fit-content;
-  overflow: hidden;
-}
-
-.node-meta {
-  display: grid;
+.pipeline-toolbar-group {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  padding: 14px;
-  font-size: 11px;
+  flex-wrap: wrap;
 }
 
-.node-meta span {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.pipeline-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease);
+  white-space: nowrap;
+}
+
+.pipeline-toolbar-btn:hover {
+  color: var(--text);
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+
+.pipeline-toolbar-btn.reset {
   color: var(--text-dim);
 }
 
-.node-meta strong {
-  font-size: 12px;
+.pipeline-toolbar-btn.reset:hover {
   color: var(--text);
 }
 
-.node-actions {
-  display: grid;
+.pipeline-toolbar-sep {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+  user-select: none;
+}
+
+/* ── Action Notice ── */
+.pipeline-notice {
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Canvas + Sidebar Layout ── */
+.pipeline-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.pipeline-canvas-area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  background: var(--canvas-bg);
+}
+
+.pipeline-flow {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Dataset Node ── */
+.pipeline-dataset-node {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 14px;
+  padding: 10px 14px;
+  min-width: 180px;
+  max-width: 260px;
+  border-radius: 10px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease);
+  cursor: grab;
+}
+
+.pipeline-dataset-node:hover {
+  background: var(--surface-raised);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.pipeline-dataset-node.selected {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), var(--shadow-sm);
+}
+
+html[data-theme="light"] .pipeline-dataset-node {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme="light"] .pipeline-dataset-node:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+}
+
+/* ── Agent Node ── */
+.pipeline-agent-node {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  min-width: 170px;
+  max-width: 240px;
+  border-radius: 10px;
+  border: 2px dashed var(--accent-blue);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease);
+  cursor: grab;
+}
+
+.pipeline-agent-node:hover {
+  background: var(--surface-raised);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.pipeline-agent-node.selected {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3), var(--shadow-sm);
+}
+
+html[data-theme="light"] .pipeline-agent-node {
+  background: #ffffff;
+  border-color: var(--primary);
+}
+
+/* ── Shared Node Elements ── */
+.pipeline-node-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pipeline-node-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-node-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pipeline-stage-badge {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.pipeline-node-dim {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.pipeline-agent-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pipeline-transform-badge {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="light"] .pipeline-transform-badge {
+  color: var(--primary);
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.pipeline-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.pipeline-run-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+
+.pipeline-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Connection Handles ── */
+.pipeline-handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #ef4444 !important;
+  border: 2px solid var(--surface) !important;
+  transition: transform 150ms ease;
+}
+
+.pipeline-handle:hover {
+  transform: scale(1.4);
+}
+
+html[data-theme="light"] .pipeline-handle {
+  background: var(--primary) !important;
+}
+
+/* ── Right Detail Sidebar ── */
+.pipeline-detail-sidebar {
+  width: 240px;
+  flex: 0 0 240px;
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.pipeline-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.pipeline-sidebar-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.pipeline-meta-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.pipeline-sidebar-meta strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.pipeline-sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
+}
+
+.pipeline-action-btn {
+  width: 100%;
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.pipeline-action-btn.small {
+  min-height: 32px;
+  font-size: 10px;
+}
+
+.pipeline-sidebar-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pipeline-sidebar-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Edge styling overrides for pipeline dashed red */
+.pipeline-flow .react-flow__edge-path {
+  stroke: #ef4444 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 6 4 !important;
+}
+
+html[data-theme="light"] .pipeline-flow .react-flow__edge-path {
+  stroke: var(--primary) !important;
+}
+
+.pipeline-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke: #ef4444 !important;
+  stroke-dasharray: none !important;
+}
+
+html[data-theme="light"] .pipeline-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--primary) !important;
 }
 
 /* Results View */

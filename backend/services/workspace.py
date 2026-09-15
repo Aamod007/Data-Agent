@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -83,7 +84,27 @@ class Workspace:
     def __init__(self) -> None:
         self._datasets: dict[str, Dataset] = {}
         self._active_dataset_id: str | None = None
-        self._config = ConfigUpdate()
+        nvidia_key = os.environ.get("NVIDIA_API_KEY")
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if nvidia_key:
+            self._config = ConfigUpdate(
+                provider="nvidia",
+                model="meta/llama-3.2-11b-vision-instruct",
+                base_url="https://integrate.api.nvidia.com/v1",
+                api_key=nvidia_key,
+            )
+        elif openai_key:
+            self._config = ConfigUpdate(
+                provider="openai",
+                model="gpt-4o-mini",
+                api_key=openai_key,
+            )
+        else:
+            self._config = ConfigUpdate(
+                provider="ollama",
+                model="llama3",
+                base_url="http://localhost:11434",
+            )
         self._lock = threading.RLock()
 
     def config(self) -> ConfigUpdate:
@@ -93,7 +114,11 @@ class Workspace:
     def update_config(self, update: ConfigUpdate) -> ConfigUpdate:
         with self._lock:
             if update.api_key is None:
-                update.api_key = self._config.api_key
+                update.api_key = (
+                    self._config.api_key
+                    or os.environ.get("NVIDIA_API_KEY")
+                    or os.environ.get("OPENAI_API_KEY")
+                )
             self._config = update
             return self._config.model_copy()
 
@@ -123,6 +148,48 @@ class Workspace:
             self._datasets[dataset.id] = dataset
             self._active_dataset_id = dataset.id
         return dataset
+
+    def add_from_local_directory(self, directory: str) -> list["Dataset"]:
+        """Load all supported tabular files from a local directory."""
+        from data_agnets.tools.data_loader import auto_load_file
+
+        dir_path = Path(directory).resolve()
+        if not dir_path.is_dir():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+
+        supported_exts = {".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".parquet", ".xlsx", ".xls"}
+        loaded: list[Dataset] = []
+
+        for file_path in sorted(dir_path.iterdir()):
+            if file_path.is_dir():
+                continue
+            if file_path.suffix.lower() not in supported_exts:
+                continue
+
+            try:
+                result = auto_load_file(str(file_path))
+                if not isinstance(result, pd.DataFrame):
+                    continue  # Skip files that fail to load
+                dataset_id = uuid.uuid4().hex
+                name = file_path.stem
+                dataset = Dataset(
+                    id=dataset_id,
+                    name=name,
+                    frame=result,
+                    source=f"upload · {file_path.name}",
+                    path=file_path,
+                )
+                with self._lock:
+                    self._datasets[dataset.id] = dataset
+                    self._active_dataset_id = dataset.id
+                loaded.append(dataset)
+            except Exception:
+                continue  # Skip problematic files
+
+        if not loaded:
+            raise ValueError(f"No loadable tabular files found in {directory}")
+
+        return loaded
 
     def add_sample(self, sample_name: str) -> Dataset:
         from data_agnets.tools.data_loader import auto_load_file
