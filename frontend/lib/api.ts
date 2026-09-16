@@ -257,9 +257,10 @@ export function streamRun(
         const payload = JSON.parse(event.data) as AgentRun;
         onUpdate(payload);
         if (payload.status === "completed" || payload.status === "failed") {
+          closed = true;
+          stopPolling();
           source?.close();
           source = null;
-          stopPolling();
         }
       } catch (err) {
         onError?.(err instanceof Error ? err.message : String(err));
@@ -268,13 +269,12 @@ export function streamRun(
     source.addEventListener("status", handler);
     source.addEventListener("complete", handler);
     source.addEventListener("error", () => {
-      // If EventSource drops or closes, seamlessly fallback to polling
-      if (!source || source.readyState === EventSource.CLOSED || source.readyState === EventSource.CONNECTING) {
-        source?.close();
-        source = null;
+      if (!closed) {
         startPolling();
       }
     });
+    // Also run polling as an immediate fallback since dev proxy may buffer SSE chunks
+    startPolling();
   } catch {
     startPolling();
   }

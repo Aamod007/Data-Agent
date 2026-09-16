@@ -129,6 +129,34 @@ def _build_runner_script() -> str:
                 "property",
                 "__build_class__",
                 "str",
+                "round",
+                "repr",
+                "format",
+                "super",
+                "slice",
+                "iter",
+                "next",
+                "callable",
+                "issubclass",
+                "id",
+                "hash",
+                "divmod",
+                "pow",
+                "complex",
+                "bytes",
+                "bytearray",
+                "IndexError",
+                "AttributeError",
+                "ZeroDivisionError",
+                "RuntimeError",
+                "ImportError",
+                "StopIteration",
+                "OverflowError",
+                "NotImplementedError",
+                "LookupError",
+                "ArithmeticError",
+                "AssertionError",
+                "BaseException",
             ]
             if hasattr(builtins, name)
         }
@@ -208,15 +236,14 @@ def _build_runner_script() -> str:
                 return
 
             exec_globals = {"__builtins__": _SAFE_BUILTINS, "pd": pd, "np": np, "__name__": "__main__"}
-            local_vars = {}
 
             try:
-                exec(code, exec_globals, local_vars)
+                exec(code, exec_globals)
             except Exception as exc:
                 sys.stdout.write(json.dumps({"result": None, "error": f"Code execution failed: {exc}"}))
                 return
 
-            func = local_vars.get(function_name)
+            func = exec_globals.get(function_name)
             if func is None or not callable(func):
                 sys.stdout.write(json.dumps({"result": None, "error": f"Function '{function_name}' not found or not callable."}))
                 return
@@ -301,11 +328,11 @@ def run_code_sandboxed_subprocess(
         "data_format": data_format,
     }
 
-    env = {
-        "PATH": os.environ.get("PATH", ""),
-        "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
-        "PYTHONWARNINGS": "ignore",
-    }
+    env = dict(os.environ)
+    env["PYTHONWARNINGS"] = "ignore"
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    pp = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{repo_root}{os.pathsep}{pp}" if pp else repo_root
 
     try:
         completed = subprocess.run(

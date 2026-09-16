@@ -103,6 +103,8 @@ class AgentRunner:
                 model=config.model,
                 base_url=config.base_url or "https://openrouter.ai/api/v1",
                 api_key=config.api_key or os.environ.get("OPENROUTER_API_KEY"),
+                timeout=float(os.environ.get("AGENT_LLM_TIMEOUT", "180")),
+                max_retries=1,
             )
         api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
         if not api_key:

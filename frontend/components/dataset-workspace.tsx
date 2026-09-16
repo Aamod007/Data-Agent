@@ -39,7 +39,7 @@ export function DatasetWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDirInput, setShowDirInput] = useState(false);
-  const [dirPath, setDirPath] = useState("C:\\Users\\yashv\\Desktop\\data_datathon");
+  const [dirPath, setDirPath] = useState("data");
   const [pendingDelete, setPendingDelete] = useState<Dataset | null>(null);
   const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -260,12 +260,12 @@ export function DatasetWorkspace() {
           <button
             className="sample-chip mono"
             disabled={busy}
-            onClick={() => void loadDirectory("C:\\Users\\yashv\\Desktop\\data_datathon")}
-            title="Load all datathon data files from C:\Users\yashv\Desktop\data_datathon"
+            onClick={() => void loadDirectory("data")}
+            title="Load all data files from project data directory"
             style={{ borderColor: "var(--accent-blue, #3b82f6)", background: "rgba(59, 130, 246, 0.1)" }}
           >
             <FolderOpen size={12} aria-hidden="true" style={{ color: "#3b82f6" }} />
-            <span style={{ fontWeight: 600, color: "#60a5fa" }}>Datathon Data Folder</span>
+            <span style={{ fontWeight: 600, color: "#60a5fa" }}>Project Data Folder</span>
           </button>
           {samples.map((s) => (
             <button

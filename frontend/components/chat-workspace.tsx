@@ -196,6 +196,7 @@ export function ChatWorkspace() {
         (next) => {
           setRun(next);
           if (next.status === "completed" || next.status === "failed") {
+            cleanup.current?.();
             cleanup.current = null;
             setMessages((prev) => [
               ...prev,
@@ -214,6 +215,7 @@ export function ChatWorkspace() {
           }
         },
         (errMsg) => {
+          cleanup.current?.();
           cleanup.current = null;
           setError(errMsg);
           setRun(null);
@@ -315,9 +317,11 @@ export function ChatWorkspace() {
                 {/* Inline Artifacts */}
                 {m.run?.artifacts && m.run.artifacts.length > 0 && (
                   <div className="stream-artifacts">
-                    {m.run.artifacts.map((art, idx) => (
-                      <ArtifactView key={`${art.type}-${idx}`} artifact={art} />
-                    ))}
+                    {m.run.artifacts
+                      .filter((art) => art.type !== "code")
+                      .map((art, idx) => (
+                        <ArtifactView key={`${art.type}-${idx}`} artifact={art} />
+                      ))}
                   </div>
                 )}
 
