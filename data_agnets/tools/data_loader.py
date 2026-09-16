@@ -631,18 +631,22 @@ def auto_load_file(file_path: str, max_rows: Optional[int] = None) -> pd.DataFra
     try:
         if suffixes in {".csv", ".csv.gz"} or ext in {".csv", ".tsv"}:
             sep = "\t" if ext == ".tsv" else ","
-            return load_csv(str(path), sep=sep, nrows=max_rows)
-        if ext in [".xlsx", ".xls"]:
-            return load_excel(str(path), nrows=max_rows)
-        if suffixes in {".jsonl", ".ndjson"} or ext in {".jsonl", ".ndjson"}:
-            return load_json(str(path), lines=True, nrows=max_rows)
-        if ext == ".json":
-            return load_json(str(path), lines=False, nrows=max_rows)
-        if ext == ".parquet":
-            return load_parquet(str(path), max_rows=max_rows)
-        if ext == ".pkl":
-            return load_pickle(str(path))
-        return f"Unsupported file extension: {suffixes or ext}"
+            df = load_csv(str(path), sep=sep, nrows=max_rows)
+        elif ext in [".xlsx", ".xls"]:
+            df = load_excel(str(path), nrows=max_rows)
+        elif suffixes in {".jsonl", ".ndjson"} or ext in {".jsonl", ".ndjson"}:
+            df = load_json(str(path), lines=True, nrows=max_rows)
+        elif ext == ".json":
+            df = load_json(str(path), lines=False, nrows=max_rows)
+        elif ext == ".parquet":
+            df = load_parquet(str(path), max_rows=max_rows)
+        elif ext == ".pkl":
+            df = load_pickle(str(path))
+        else:
+            return f"Unsupported file extension: {suffixes or ext}"
+        if isinstance(df, pd.DataFrame):
+            df.columns = [str(c) for c in df.columns]
+        return df
     except Exception as e:
         return f"Error loading file: {e}"
 
@@ -696,7 +700,10 @@ def load_json(file_path: str, lines: bool = False, nrows: Optional[int] = None) 
             data = json.load(f)
 
         if isinstance(data, list):
+            if data and all(isinstance(x, list) and len(x) == 1 and isinstance(x[0], dict) for x in data[:50]):
+                data = [x[0] for x in data if isinstance(x, list) and len(x) == 1]
             df = pd.json_normalize(data)
+            df.columns = [str(c) for c in df.columns]
             if nrows is not None and len(df) > nrows:
                 return df.head(nrows)
             return df

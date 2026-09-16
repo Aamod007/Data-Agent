@@ -53,17 +53,17 @@ async def stream_run(run_id: str) -> StreamingResponse:
         raise HTTPException(status_code=404, detail="Run not found") from exc
 
     async def events():
-        last_signature: str | None = None
+        last_ts: float = 0.0
         while True:
-            run = agent_runner.get(run_id).snapshot()
-            data = run.model_dump(mode="json")
-            signature = json.dumps(data, sort_keys=True, default=str)
-            if signature != last_signature:
+            run_obj = agent_runner.get(run_id)
+            if run_obj.updated_at != last_ts:
+                last_ts = run_obj.updated_at
+                run = run_obj.snapshot()
+                data = json.dumps(run.model_dump(mode="json"), default=str)
                 event = "complete" if run.status in {"completed", "failed"} else "status"
-                yield f"event: {event}\ndata: {signature}\n\n"
-                last_signature = signature
-            if run.status in {"completed", "failed"}:
-                break
+                yield f"event: {event}\ndata: {data}\n\n"
+                if run.status in {"completed", "failed"}:
+                    break
             await asyncio.sleep(0.35)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

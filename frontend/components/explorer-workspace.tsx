@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, BarChart3, Database, FileChartColumnIncreasing, FileText, Layers, LoaderCircle, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { PlotlyChart } from "@/components/plotly-chart";
+import { ChartSkeleton, MetricCardSkeleton } from "@/components/skeleton";
 import { api } from "@/lib/api";
 import type { ColumnProfile, Dataset, DatasetProfile } from "@/lib/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -178,9 +179,15 @@ export function ExplorerWorkspace() {
           </section>
 
           {loading ? (
-            <div className="empty">
-              <LoaderCircle className="spin" size={28} />
-              <p>Profiling dataset metrics…</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
+              <div className="kpi-grid">
+                <MetricCardSkeleton />
+                <MetricCardSkeleton />
+                <MetricCardSkeleton />
+                <MetricCardSkeleton />
+                <MetricCardSkeleton />
+              </div>
+              <ChartSkeleton height={360} />
             </div>
           ) : profile ? (
             <>

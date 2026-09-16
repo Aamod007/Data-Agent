@@ -29,12 +29,14 @@ import {
   Download,
   FileChartColumnIncreasing,
   FileCode,
+  FileText,
   GitBranch,
   Grid,
   Layers,
   LayoutDashboard,
   LineChart,
   LoaderCircle,
+  Maximize2,
   Play,
   Plus,
   Redo,
@@ -43,12 +45,14 @@ import {
   SlidersHorizontal,
   Sparkles,
   Table as TableIcon,
+  Trash2,
   Undo,
   Wrench,
   X,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { DashboardWorkspace } from "@/components/dashboard-workspace";
 import { PlotlyChart } from "@/components/plotly-chart";
 import { api } from "@/lib/api";
 import type {
@@ -166,9 +170,55 @@ function AgentNode({
   );
 }
 
+function NoteNode({
+  data,
+  selected,
+}: {
+  data: {
+    label: string;
+    text?: string;
+  };
+  selected?: boolean;
+}) {
+  return (
+    <div
+      className={`pipeline-note-node ${selected ? "selected" : ""}`}
+      style={{
+        background: "var(--surface)",
+        border: selected ? "2px solid var(--accent-blue)" : "1px solid var(--border)",
+        borderLeft: "4px solid #f59e0b",
+        borderRadius: 6,
+        padding: "8px 12px",
+        minWidth: 160,
+        maxWidth: 240,
+        boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 700,
+          fontSize: 11,
+          color: "var(--text)",
+          marginBottom: 4,
+        }}
+      >
+        <FileText size={12} style={{ color: "#f59e0b" }} />
+        <span>{data.label}</span>
+      </div>
+      <div style={{ fontSize: 10, color: "var(--text-muted)", lineHeight: 1.3 }}>
+        {data.text || "Click to add workflow notes or documentation..."}
+      </div>
+    </div>
+  );
+}
+
 const nodeTypes: NodeTypes = {
   datasetNode: DatasetNode,
   agentNode: AgentNode,
+  noteNode: NoteNode,
 };
 
 /* ─────────── Layout Helper ─────────── */
@@ -240,9 +290,9 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
   // Selected step (pipeline node)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
-  // Workspace View: Table | Chart | EDA | Code | Model | Predictions | MLflow | Visual Editor | Compare
+  // Workspace View: Table | Chart | EDA | Code | Model | Predictions | MLflow | Visual Editor | Compare | Dashboard
   const [workspaceView, setWorkspaceView] = useState<
-    "Visual Editor" | "Table" | "Chart" | "EDA" | "Code" | "Model" | "Predictions" | "MLflow" | "Compare"
+    "Visual Editor" | "Table" | "Chart" | "EDA" | "Code" | "Model" | "Predictions" | "MLflow" | "Compare" | "Dashboard"
   >("Chart");
 
   // Checkboxes
@@ -308,6 +358,13 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([] as Edge[]);
   const [agentCounter, setAgentCounter] = useState(0);
 
+  // Canvas History Stack for Undo / Redo & Multi-select
+  const [canvasHistory, setCanvasHistory] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [selectedCanvasNodes, setSelectedCanvasNodes] = useState<string[]>([]);
+  const [selectedCanvasEdges, setSelectedCanvasEdges] = useState<string[]>([]);
+  const [rfInstance, setRfInstance] = useState<any>(null);
+
   // 1. Fetch initial pipeline snapshot & datasets
   const loadSnapshot = useCallback(async (target = pipelineTarget) => {
     try {
@@ -372,12 +429,14 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     const layout = buildLayout(datasets, activeDatasetId, snapshot?.target_dataset_id || null);
     setNodes((prev) => {
-      const agentNodes = prev.filter((n) => n.type === "agentNode");
-      return [...layout.nodes, ...agentNodes];
+      const customNodes = prev.filter((n) => n.type === "agentNode" || n.type === "noteNode");
+      const combined = [...layout.nodes, ...customNodes];
+      return combined;
     });
     setEdges((prev) => {
       const agentEdges = prev.filter((e) => e.id.startsWith("e-agent-"));
-      return [...layout.edges, ...agentEdges];
+      const combined = [...layout.edges, ...agentEdges];
+      return combined;
     });
   }, [datasets, activeDatasetId, snapshot?.target_dataset_id, setNodes, setEdges]);
 
@@ -468,11 +527,148 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
     downloadFile(JSON.stringify(reg, null, 2), "pipeline_registry.json", "application/json");
   };
 
+  // Canvas History helper
+  const pushCanvasHistory = useCallback(
+    (newNodes: Node[], newEdges: Edge[]) => {
+      setCanvasHistory((prev) => {
+        const sliced = historyIndex >= 0 ? prev.slice(0, historyIndex + 1) : [];
+        const next = [...sliced, { nodes: newNodes, edges: newEdges }];
+        return next.slice(-30);
+      });
+      setHistoryIndex((prev) => Math.min(prev + 1, 29));
+    },
+    [historyIndex],
+  );
+
+  const canUndoCanvas = historyIndex > 0;
+  const canRedoCanvas = historyIndex >= 0 && historyIndex < canvasHistory.length - 1;
+
+  const handleUndoCanvas = useCallback(() => {
+    if (historyIndex > 0) {
+      const prev = canvasHistory[historyIndex - 1];
+      setNodes(prev.nodes);
+      setEdges(prev.edges);
+      setHistoryIndex(historyIndex - 1);
+      setActionNotice("Undid canvas modification");
+    } else {
+      void handleUndo();
+    }
+  }, [historyIndex, canvasHistory, setNodes, setEdges, handleUndo]);
+
+  const handleRedoCanvas = useCallback(() => {
+    if (historyIndex >= 0 && historyIndex < canvasHistory.length - 1) {
+      const next = canvasHistory[historyIndex + 1];
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      setHistoryIndex(historyIndex + 1);
+      setActionNotice("Redid canvas modification");
+    } else {
+      void handleRedo();
+    }
+  }, [historyIndex, canvasHistory, setNodes, setEdges, handleRedo]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedCanvasNodes.length === 0 && selectedCanvasEdges.length === 0) return;
+    const remainingNodes = nodes.filter((n) => !selectedCanvasNodes.includes(n.id));
+    const remainingEdges = edges.filter(
+      (e) =>
+        !selectedCanvasEdges.includes(e.id) &&
+        !selectedCanvasNodes.includes(e.source) &&
+        !selectedCanvasNodes.includes(e.target),
+    );
+    setNodes(remainingNodes);
+    setEdges(remainingEdges);
+    pushCanvasHistory(remainingNodes, remainingEdges);
+    setSelectedCanvasNodes([]);
+    setSelectedCanvasEdges([]);
+    setActionNotice("Deleted selected item(s) from canvas");
+  }, [selectedCanvasNodes, selectedCanvasEdges, nodes, edges, pushCanvasHistory, setNodes, setEdges]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    if (selectedCanvasNodes.length === 0) return;
+    const toDuplicate = nodes.filter((n) => selectedCanvasNodes.includes(n.id));
+    const newNodes: Node[] = toDuplicate.map((n, idx) => {
+      const newId = `${n.id}-copy-${Date.now()}-${idx}`;
+      return {
+        ...n,
+        id: newId,
+        position: { x: n.position.x + 40, y: n.position.y + 40 },
+        selected: false,
+        data: {
+          ...n.data,
+          label: `${String(n.data?.label ?? "Node")} (Copy)`,
+        },
+      };
+    });
+    const updatedNodes = [...nodes, ...newNodes];
+    setNodes(updatedNodes);
+    pushCanvasHistory(updatedNodes, edges);
+    setActionNotice(`Duplicated ${newNodes.length} node(s)`);
+  }, [selectedCanvasNodes, nodes, edges, pushCanvasHistory, setNodes]);
+
+  const addNoteNode = useCallback(
+    (label = "Workflow Note", text = "Click to edit annotation / note") => {
+      const id = `note-${Date.now()}`;
+      const baseX = 260 + agentCounter * 20;
+      const baseY = 180 + agentCounter * 20;
+      setAgentCounter((c) => c + 1);
+      const newNote: Node = {
+        id,
+        type: "noteNode",
+        position: { x: baseX, y: baseY },
+        data: { label, text },
+      };
+      const updatedNodes = [...nodes, newNote];
+      setNodes(updatedNodes);
+      pushCanvasHistory(updatedNodes, edges);
+      setActionNotice("Added workflow note to canvas");
+    },
+    [agentCounter, nodes, edges, pushCanvasHistory, setNodes],
+  );
+
+  // Keyboard shortcut listener for canvas operations
+  useEffect(() => {
+    if (workspaceView !== "Visual Editor") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        handleDeleteSelected();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedoCanvas();
+        } else {
+          handleUndoCanvas();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        handleRedoCanvas();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [workspaceView, handleDeleteSelected, handleUndoCanvas, handleRedoCanvas]);
+
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds) => addEdge(params, eds));
+      setEdges((eds) => {
+        const next = addEdge(params, eds);
+        pushCanvasHistory(nodes, next);
+        return next;
+      });
     },
-    [setEdges],
+    [nodes, pushCanvasHistory, setEdges],
   );
 
   const onNodeClick = useCallback(
@@ -503,9 +699,11 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
           onRun: () => void runAgentFromNode(agentType, id),
         },
       };
-      setNodes((nds) => [...nds, newNode]);
+      const updatedNodes = [...nodes, newNode];
+      setNodes(updatedNodes);
+      pushCanvasHistory(updatedNodes, edges);
     },
-    [agentCounter, setNodes],
+    [agentCounter, nodes, edges, pushCanvasHistory, setNodes],
   );
 
   const runAgentFromNode = async (agentType: string, nodeId: string) => {
@@ -531,6 +729,8 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
     const layout = buildLayout(datasets, activeDatasetId, snapshot?.target_dataset_id || null);
     setNodes(layout.nodes);
     setEdges(layout.edges);
+    pushCanvasHistory(layout.nodes, layout.edges);
+    setActionNotice("Reset visual canvas layout");
   };
 
   // Selected dataset item
@@ -1336,6 +1536,7 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
                   { id: "MLflow", label: "MLflow" },
                   { id: "Visual Editor", label: "Visual Editor" },
                   { id: "Compare", label: "Compare" },
+                  { id: "Dashboard", label: "Dashboard" },
                 ] as const
               ).map((tab) => {
                 const isActive = workspaceView === tab.id;
@@ -1955,15 +2156,97 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
                     <BarChart2 size={12} />
                     <span>Viz Node</span>
                   </button>
+                  <span className="pipeline-toolbar-sep">+</span>
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn"
+                    onClick={() => addNoteNode()}
+                    title="Add workflow annotation note"
+                  >
+                    <Plus size={12} />
+                    <FileText size={12} />
+                    <span>Note</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="pipeline-toolbar-btn reset"
-                  onClick={resetLayout}
-                >
-                  <RefreshCw size={12} />
-                  <span>Reset Layout</span>
-                </button>
+
+                <div className="pipeline-toolbar-group" style={{ marginLeft: "auto", display: "flex", gap: 5, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn action-undo"
+                    onClick={handleUndoCanvas}
+                    disabled={!canUndoCanvas}
+                    title="Undo canvas change (Ctrl+Z)"
+                  >
+                    <Undo size={12} />
+                    <span>Undo</span>
+                    <span className="pipeline-toolbar-shortcut-hint">Ctrl+Z</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn action-redo"
+                    onClick={handleRedoCanvas}
+                    disabled={!canRedoCanvas}
+                    title="Redo canvas change (Ctrl+Y)"
+                  >
+                    <Redo size={12} />
+                    <span>Redo</span>
+                    <span className="pipeline-toolbar-shortcut-hint">Ctrl+Y</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn action-delete"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedCanvasNodes.length === 0 && selectedCanvasEdges.length === 0}
+                    title="Delete selected item(s) (Delete / Backspace)"
+                  >
+                    <Trash2 size={12} />
+                    <span>Delete</span>
+                    <span className="pipeline-toolbar-shortcut-hint">Del</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn action-duplicate"
+                    onClick={handleDuplicateSelected}
+                    disabled={selectedCanvasNodes.length === 0}
+                    title="Duplicate selected node"
+                  >
+                    <Copy size={12} />
+                    <span>Duplicate</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn action-fit"
+                    onClick={() => rfInstance?.fitView({ padding: 0.2 })}
+                    title="Fit graph to view"
+                  >
+                    <Maximize2 size={12} />
+                    <span>Fit View</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn"
+                    onClick={() => void downloadSpec()}
+                    title="Export DAG topology as JSON"
+                  >
+                    <Download size={12} />
+                    <span>Export DAG</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pipeline-toolbar-btn reset"
+                    onClick={resetLayout}
+                    title="Reset DAG to default layout"
+                  >
+                    <RefreshCw size={12} />
+                    <span>Reset Layout</span>
+                  </button>
+                </div>
               </div>
 
               <div className="pipeline-canvas-area" style={{ flex: 1, minHeight: 460 }}>
@@ -1975,6 +2258,11 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
                   onEdgesChange={onEdgesChange}
                   onConnect={onConnect}
                   onNodeClick={onNodeClick}
+                  onSelectionChange={({ nodes: selNodes, edges: selEdges }) => {
+                    setSelectedCanvasNodes(selNodes.map((n) => n.id));
+                    setSelectedCanvasEdges(selEdges.map((e) => e.id));
+                  }}
+                  onInit={(inst) => setRfInstance(inst)}
                   fitView
                   snapToGrid
                   snapGrid={[16, 16]}
@@ -1982,7 +2270,11 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
                 >
                   <MiniMap
                     nodeColor={(node) =>
-                      node.type === "agentNode" ? "#a855f7" : String(node.data?.color ?? stageColors.raw)
+                      node.type === "agentNode"
+                        ? "#a855f7"
+                        : node.type === "noteNode"
+                        ? "#f59e0b"
+                        : String(node.data?.color ?? stageColors.raw)
                     }
                     style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
                   />
@@ -1990,6 +2282,13 @@ export function PipelineWorkspace({ onClose }: { onClose?: () => void }) {
                   <Background gap={18} color="var(--border)" />
                 </ReactFlow>
               </div>
+            </div>
+          )}
+
+          {/* ─── VIEW 10: DASHBOARD VIEW ─── */}
+          {workspaceView === "Dashboard" && (
+            <div className="studio-view-container" style={{ overflowY: "auto", padding: 0 }}>
+              <DashboardWorkspace />
             </div>
           )}
         </main>

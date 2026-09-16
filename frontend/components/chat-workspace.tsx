@@ -69,9 +69,8 @@ export function ChatWorkspace() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!datasets.length) api.datasets().then(setDatasets).catch(() => undefined);
-  }, [datasets.length, setDatasets]);
+  // Datasets are loaded by WorkspaceShell into the zustand store.
+  // No need to re-fetch here.
 
   useEffect(() => {
     streamBottomRef.current?.scrollIntoView({ behavior: "smooth" });

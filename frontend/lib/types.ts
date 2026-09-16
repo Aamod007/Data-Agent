@@ -77,15 +77,42 @@ export interface ColumnProfile {
   null_pct: number;
   unique_count: number;
   sample_values: unknown[];
-  min_val: number | null;
-  max_val: number | null;
-  mean_val: number | null;
-  std_val: number | null;
+  min_val?: number | null;
+  max_val?: number | null;
+  mean_val?: number | null;
+  std_val?: number | null;
+  median_val?: number | null;
+  mode_val?: unknown;
+  variance_val?: number | null;
+  q25?: number | null;
+  q75?: number | null;
+  iqr?: number | null;
+  skewness?: number | null;
+  kurtosis?: number | null;
+  outliers_count?: number;
+  is_constant?: boolean;
+  is_near_constant?: boolean;
+  top_categories?: { category: string; count: number; pct?: number }[] | null;
+  rare_categories?: string[] | null;
+}
+
+export interface OutlierSummary {
+  column: string;
+  outlier_count: number;
+  outlier_pct: number;
+  lower_bound?: number | null;
+  upper_bound?: number | null;
+}
+
+export interface AutomatedInsights {
+  factual_findings: string[];
+  recommendations: string[];
 }
 
 export interface DatasetProfile {
   dataset_id: string;
   dataset_name: string;
+  file_type?: string;
   row_count: number;
   col_count: number;
   total_cells: number;
@@ -96,6 +123,16 @@ export interface DatasetProfile {
   columns: ColumnProfile[];
   correlations: { columns: string[]; z: number[][] } | null;
   missing_by_col: { column: string; missing_count: number; missing_pct: number; present_count: number }[];
+  health_score?: number;
+  health_summary?: string;
+  detected_target?: string | null;
+  constant_columns?: string[];
+  near_constant_columns?: string[];
+  quality_warnings?: string[];
+  outlier_summary?: OutlierSummary[];
+  total_outliers?: number;
+  insights?: AutomatedInsights;
+  agent_summary?: string | null;
 }
 
 export interface SampleDataset {

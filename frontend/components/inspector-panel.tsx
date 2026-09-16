@@ -51,8 +51,11 @@ export function InspectorPanel() {
   // every refresh, so `activeDataset` was a new object each time and retriggered
   // this effect -> setLoading(true) -> the panel blanked to a spinner. That was
   // the flicker. Cancellation also stops a slow response stomping a newer one.
+  //
+  // Also skip the fetch entirely when the inspector is closed — profile computes
+  // correlations + duplicates which is expensive for large DataFrames.
   useEffect(() => {
-    if (!datasetId) {
+    if (!datasetId || !inspectorOpen) {
       setProfile(null);
       setDetails(null);
       setLoading(false);
@@ -75,7 +78,7 @@ export function InspectorPanel() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId]);
+  }, [datasetId, inspectorOpen]);
 
 
 
@@ -174,20 +177,24 @@ export function InspectorPanel() {
           >
             Inspector
           </button>
-          <button
-            type="button"
-            className={`inspector-header-tab ${inspectorTab === "eda" ? "active" : ""}`}
-            onClick={() => setInspectorTab("eda")}
-          >
-            EDA &amp; Metrics
-          </button>
-          <button
-            type="button"
-            className={`inspector-header-tab ${inspectorTab === "schema" ? "active" : ""}`}
-            onClick={() => setInspectorTab("schema")}
-          >
-            Schema
-          </button>
+          {profile && (
+            <button
+              type="button"
+              className={`inspector-header-tab ${inspectorTab === "eda" ? "active" : ""}`}
+              onClick={() => setInspectorTab("eda")}
+            >
+              EDA &amp; Metrics
+            </button>
+          )}
+          {details && (
+            <button
+              type="button"
+              className={`inspector-header-tab ${inspectorTab === "schema" ? "active" : ""}`}
+              onClick={() => setInspectorTab("schema")}
+            >
+              Schema
+            </button>
+          )}
         </div>
 
         <button
@@ -210,10 +217,10 @@ export function InspectorPanel() {
           </div>
         )}
 
-        {!activeDataset ? (
+        {!activeDataset || !profile ? (
           <div className="inspector-empty">
             <Database size={24} />
-            <p>Select or upload a dataset to inspect its properties.</p>
+            <p>{!activeDataset ? "Select or upload a dataset to inspect its properties." : "Run an agent prompt to populate inspector data."}</p>
           </div>
         ) : loading ? (
           <div className="inspector-empty">

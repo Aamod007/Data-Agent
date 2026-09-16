@@ -14,19 +14,20 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PanelRight,
-  Play,
   Plus,
   Search,
   Settings,
   Upload,
   X,
   Sliders,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { PipelineStudioModal } from "@/components/pipeline-studio-modal";
 import { PipelineWorkspace } from "@/components/pipeline-workspace";
+import { ListSkeleton } from "@/components/skeleton";
 import { StreamlitSidebar } from "@/components/streamlit-sidebar";
 import { api } from "@/lib/api";
 import type { Dataset } from "@/lib/types";
@@ -34,10 +35,11 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 
 const navItems = [
   { href: "/chat", label: "Workspace", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/datasets", label: "Datasets", icon: Database },
   { href: "/explorer", label: "Explorer", icon: Grid },
   { href: "/pipeline", label: "Pipeline Studio", icon: GitBranch },
-  { href: "/results", label: "Results", icon: LayoutDashboard },
+  { href: "/results", label: "Results", icon: Layers },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -154,7 +156,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       const list = await api.datasets();
       setDatasets(list);
       setActive(uploaded.id);
-      if (pathname !== "/chat" && pathname !== "/") router.push("/chat");
+      if (pathname !== "/dashboard") router.push("/dashboard");
     } catch {
       // Ignored
     } finally {
@@ -248,10 +250,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           </Link>
 
 
-          <Link href="/chat" className="topbar-run-btn">
-            <Play size={12} />
-            <span>Run</span>
-          </Link>
+
           <button
             type="button"
             className={`topbar-icon-btn ${inspectorOpen ? "active" : ""}`}
@@ -265,197 +264,229 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
       {/* 2. MAIN 3-PANEL BODY */}
       <div className="theme-main-body">
-        {/* Left Sidebar (Full or Compact Icon Rail per Image #16) */}
-        {leftSidebarOpen ? (
-          <aside
-            className="theme-left-sidebar"
-            style={{ width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }}
-            aria-label="Left Sidebar"
-          >
-            <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
-              {/* Top Mode Tabs: Studio & Controls vs Workspace & Data */}
-              <div className="streamlit-sidebar-tabs">
-                <button
-                  type="button"
-                  className={`streamlit-tab-toggle-btn ${sidebarTab === "studio" ? "active" : ""}`}
-                  onClick={() => setSidebarTab("studio")}
-                >
-                  <Sliders size={12} />
-                  <span>Pipeline &amp; AI</span>
-                </button>
-                <button
-                  type="button"
-                  className={`streamlit-tab-toggle-btn ${sidebarTab === "nav" ? "active" : ""}`}
-                  onClick={() => setSidebarTab("nav")}
-                >
-                  <Database size={12} />
-                  <span>Nav &amp; Data</span>
-                </button>
-              </div>
-
-              {sidebarTab === "studio" ? (
-                <StreamlitSidebar
-                  onOpenStudioModal={() => setPipelineStudioModalOpen(true)}
-                  dockedStudio={dockedStudio}
-                  onToggleDockedStudio={handleToggleDockedStudio}
-                />
-              ) : (
-                <>
-                  {/* Navigation Menu Links */}
-                  <nav className="left-sidebar-nav">
-                    {navItems.map(({ href, label, icon: Icon }) => {
-                      const isActive = pathname === href || (href === "/chat" && pathname === "/");
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          className={`nav-link-row ${isActive ? "active" : ""}`}
-                        >
-                          <div className="nav-link-left">
-                            <Icon size={14} />
-                            <span>{label}</span>
-                          </div>
-                          {href === "/datasets" && datasets.length > 0 && (
-                            <span className="nav-link-count">{datasets.length}</span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </nav>
-
-                  {/* DATASETS SECTION */}
-                  <div className="left-sidebar-datasets-section">
-                    <div className="datasets-header-row">
-                      <span>DATASETS</span>
-                      <button
-                        type="button"
-                        className="datasets-add-btn"
-                        title="Import new dataset"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Plus size={13} />
-                      </button>
-                    </div>
-
-                    <div className="sidebar-search-box">
-                      <Search size={12} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
-                      <input
-                        placeholder="Search datasets..."
-                        value={datasetSearch}
-                        onChange={(e) => setDatasetSearch(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="sidebar-datasets-scroll">
-                      {filteredDatasets.length === 0 ? (
-                        <p className="sidebar-empty mono">No matching datasets</p>
-                      ) : (
-                        filteredDatasets.map((d) => {
-                          const isActive = d.id === activeDatasetId;
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className={`dataset-list-item-soft ${isActive ? "active" : ""}`}
-                              onClick={() => {
-                                void api.setActive(d.id).then(() => {
-                                  setActive(d.id);
-                                  return api.datasets();
-                                }).then(setDatasets);
-                              }}
-                              title={`${d.name} (${d.shape[0]}×${d.shape[1]})`}
-                            >
-                              <div className="dataset-item-left">
-                                <Database size={12} className="dataset-item-icon" />
-                                <span className="dataset-item-name">{d.name}</span>
-                              </div>
-                              <div className="dataset-item-right">
-                                <span className="dataset-item-shape">{d.shape[0].toLocaleString()}r</span>
-                                <span className="badge-stage-soft">{d.stage}</span>
-                              </div>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Upload Button at bottom of datasets panel */}
-                    <div className="sidebar-upload-trigger-wrap">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        hidden
-                        accept=".csv,.tsv,.json,.jsonl,.ndjson,.parquet,.xlsx,.xls"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void handleFileUpload(file);
-                          e.currentTarget.value = "";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="sidebar-upload-btn"
-                        disabled={uploading}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload size={12} />
-                        <span>{uploading ? "IMPORTING…" : "UPLOAD DATASET"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Bottom Storage Row */}
-            <div className="left-sidebar-footer">
-              <div className="storage-indicator">
-                <HardDrive size={12} />
-                <span>Storage</span>
-              </div>
-              <span>{totalStorageMB} MB / 1 GB</span>
-            </div>
-
-            {/* Drag Resizer Handle (Image #15) */}
-            <div
-              className={`sidebar-resizer-handle ${isResizing ? "resizing" : ""}`}
-              onMouseDown={() => setIsResizing(true)}
-              title="Drag to resize sidebar"
-              aria-label="Resize sidebar"
-            />
-          </aside>
-        ) : (
-          /* Collapsed Icon Rail (Image #16 Fixed) */
-          <aside className="theme-left-sidebar is-compact" aria-label="Compact Left Navigation">
-            <div className="compact-icon-rail">
-              {navItems.map(({ href, label, icon: Icon }) => {
-                const isActive = pathname === href || (href === "/chat" && pathname === "/");
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`compact-nav-icon-btn ${isActive ? "active" : ""}`}
-                    title={label}
-                    aria-label={label}
-                  >
-                    <Icon size={16} />
-                  </Link>
-                );
-              })}
-            </div>
-            <div className="compact-icon-rail" style={{ marginTop: "auto", borderTop: "1px solid var(--border)" }}>
+        {/* Left Sidebar — both always mounted, CSS hides the inactive one (no mount/unmount latency) */}
+        <aside
+          className="theme-left-sidebar"
+          style={{
+            width: `${sidebarWidth}px`,
+            flex: `0 0 ${sidebarWidth}px`,
+            display: leftSidebarOpen ? undefined : "none",
+          }}
+          aria-label="Left Sidebar"
+        >
+          <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+            {/* Top Mode Tabs: Studio & Controls vs Workspace & Data */}
+            <div className="streamlit-sidebar-tabs">
               <button
                 type="button"
-                className="compact-nav-icon-btn"
-                onClick={toggleLeftSidebar}
-                title="Expand sidebar"
-                aria-label="Expand sidebar"
+                className={`streamlit-tab-toggle-btn ${sidebarTab === "studio" ? "active" : ""}`}
+                onClick={() => setSidebarTab("studio")}
               >
-                <PanelLeftOpen size={16} />
+                <Sliders size={12} />
+                <span>Pipeline &amp; AI</span>
+              </button>
+              <button
+                type="button"
+                className={`streamlit-tab-toggle-btn ${sidebarTab === "nav" ? "active" : ""}`}
+                onClick={() => setSidebarTab("nav")}
+              >
+                <Database size={12} />
+                <span>Nav &amp; Data</span>
               </button>
             </div>
-          </aside>
-        )}
+
+            {sidebarTab === "studio" ? (
+              <StreamlitSidebar
+                onOpenStudioModal={() => setPipelineStudioModalOpen(true)}
+                dockedStudio={dockedStudio}
+                onToggleDockedStudio={handleToggleDockedStudio}
+              />
+            ) : (
+              <>
+                {/* Navigation Menu Links */}
+                <nav className="left-sidebar-nav">
+                  {navItems.map(({ href, label, icon: Icon }) => {
+                    const isActive = pathname === href || (href === "/chat" && pathname === "/");
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`nav-link-row ${isActive ? "active" : ""}`}
+                      >
+                        <div className="nav-link-left">
+                          <Icon size={14} />
+                          <span>{label}</span>
+                        </div>
+                        {href === "/datasets" && datasets.length > 0 && (
+                          <span className="nav-link-count">{datasets.length}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+
+                {/* ACTIVE DATASET LIVE DASHBOARD WIDGET */}
+                {activeDataset && (
+                  <div className="sidebar-dashboard-widget">
+                    <div className="sidebar-dashboard-widget-top">
+                      <span>DATA TELEMETRY</span>
+                      <span className="badge-stage-soft">{activeDataset.stage}</span>
+                    </div>
+                    <div className="sidebar-dashboard-widget-stats">
+                      <div className="sidebar-dashboard-stat-mini">
+                        <span>Records</span>
+                        <strong>{activeDataset.shape[0].toLocaleString()}</strong>
+                      </div>
+                      <div className="sidebar-dashboard-stat-mini">
+                        <span>Features</span>
+                        <strong>{activeDataset.shape[1]}</strong>
+                      </div>
+                    </div>
+                    <Link href="/dashboard" className="sidebar-dashboard-link-btn">
+                      <LayoutDashboard size={11} />
+                      <span>Open Live Dashboard</span>
+                    </Link>
+                  </div>
+                )}
+
+                {/* DATASETS SECTION */}
+                <div className="left-sidebar-datasets-section">
+                  <div className="datasets-header-row">
+                    <span>DATASETS</span>
+                    <button
+                      type="button"
+                      className="datasets-add-btn"
+                      title="Import new dataset"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
+
+                  <div className="sidebar-search-box">
+                    <Search size={12} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+                    <input
+                      placeholder="Search datasets..."
+                      value={datasetSearch}
+                      onChange={(e) => setDatasetSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="sidebar-datasets-scroll">
+                    {datasets.length === 0 ? (
+                      <ListSkeleton count={3} />
+                    ) : filteredDatasets.length === 0 ? (
+                      <p className="sidebar-empty mono">No matching datasets</p>
+                    ) : (
+                      filteredDatasets.map((d) => {
+                        const isActive = d.id === activeDatasetId;
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            className={`dataset-list-item-soft ${isActive ? "active" : ""}`}
+                            onClick={() => {
+                              void api.setActive(d.id).then(() => {
+                                setActive(d.id);
+                                return api.datasets();
+                              }).then(setDatasets);
+                            }}
+                            title={`${d.name} (${d.shape[0]}×${d.shape[1]})`}
+                          >
+                            <div className="dataset-item-left">
+                              <Database size={12} className="dataset-item-icon" />
+                              <span className="dataset-item-name">{d.name}</span>
+                            </div>
+                            <div className="dataset-item-right">
+                              <span className="dataset-item-shape">{d.shape[0].toLocaleString()}r</span>
+                              <span className="badge-stage-soft">{d.stage}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Upload Button at bottom of datasets panel */}
+                  <div className="sidebar-upload-trigger-wrap">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      hidden
+                      accept=".csv,.tsv,.json,.jsonl,.ndjson,.parquet,.xlsx,.xls"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleFileUpload(file);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="sidebar-upload-btn"
+                      disabled={uploading}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={12} />
+                      <span>{uploading ? "IMPORTING…" : "UPLOAD DATASET"}</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Bottom Storage Row */}
+          <div className="left-sidebar-footer">
+            <div className="storage-indicator">
+              <HardDrive size={12} />
+              <span>Storage</span>
+            </div>
+            <span>{totalStorageMB} MB / 1 GB</span>
+          </div>
+
+          {/* Drag Resizer Handle */}
+          <div
+            className={`sidebar-resizer-handle ${isResizing ? "resizing" : ""}`}
+            onMouseDown={() => setIsResizing(true)}
+            title="Drag to resize sidebar"
+            aria-label="Resize sidebar"
+          />
+        </aside>
+
+        {/* Collapsed Icon Rail — always mounted, hidden when expanded */}
+        <aside
+          className="theme-left-sidebar is-compact"
+          aria-label="Compact Left Navigation"
+          style={{ display: leftSidebarOpen ? "none" : undefined }}
+        >
+          <div className="compact-icon-rail">
+            {navItems.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href || (href === "/chat" && pathname === "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`compact-nav-icon-btn ${isActive ? "active" : ""}`}
+                  title={label}
+                  aria-label={label}
+                >
+                  <Icon size={16} />
+                </Link>
+              );
+            })}
+          </div>
+          <div className="compact-icon-rail" style={{ marginTop: "auto", borderTop: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              className="compact-nav-icon-btn"
+              onClick={toggleLeftSidebar}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          </div>
+        </aside>
 
         {/* Main Center View */}
         <main className="theme-center-workbench">

@@ -270,11 +270,11 @@ export function streamRun(
     source.addEventListener("complete", handler);
     source.addEventListener("error", () => {
       if (!closed) {
+        source?.close();
+        source = null;
         startPolling();
       }
     });
-    // Also run polling as an immediate fallback since dev proxy may buffer SSE chunks
-    startPolling();
   } catch {
     startPolling();
   }

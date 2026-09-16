@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { TableSkeleton } from "@/components/skeleton";
 import { api } from "@/lib/api";
 import type { Dataset, DatasetDetails, DatasetPreview, SampleDataset } from "@/lib/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -37,6 +38,8 @@ export function DatasetWorkspace() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"data" | "schema" | "stats" | "code">("data");
   const [busy, setBusy] = useState(false);
+  const [loadingDatasets, setLoadingDatasets] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDirInput, setShowDirInput] = useState(false);
   const [dirPath, setDirPath] = useState("data");
@@ -45,11 +48,14 @@ export function DatasetWorkspace() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadDatasets = async () => {
+    setLoadingDatasets(true);
     try {
       const list = await api.datasets();
       setDatasets(list);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load datasets.");
+    } finally {
+      setLoadingDatasets(false);
     }
   };
 
@@ -77,12 +83,14 @@ export function DatasetWorkspace() {
       setDetails(null);
       return;
     }
+    setPreviewLoading(true);
     Promise.all([api.preview(selectedId), api.details(selectedId)])
       .then(([nextPreview, nextDetails]) => {
         setPreview(nextPreview);
         setDetails(nextDetails);
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load dataset preview."));
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load dataset preview."))
+      .finally(() => setPreviewLoading(false));
   }, [selectedId]);
 
   const visible = useMemo(
@@ -299,7 +307,9 @@ export function DatasetWorkspace() {
           </span>
         </div>
 
-        {visible.length === 0 ? (
+        {loadingDatasets && datasets.length === 0 ? (
+          <TableSkeleton rows={4} cols={7} />
+        ) : visible.length === 0 ? (
           <div className="empty">
             <Database size={28} aria-hidden="true" />
             <p className="mono" style={{ fontSize: 12 }}>
@@ -410,6 +420,12 @@ export function DatasetWorkspace() {
           if (!deleting) setPendingDelete(null);
         }}
       />
+
+      {previewLoading && !preview && (
+        <section className="card preview-card" style={{ padding: 16 }}>
+          <TableSkeleton rows={6} cols={6} />
+        </section>
+      )}
 
       {preview && details && (
         <section className="card preview-card">

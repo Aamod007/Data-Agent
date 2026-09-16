@@ -7,6 +7,15 @@ type PlotlyModule = {
   purge: (element: HTMLElement) => void;
 };
 
+// Cache the heavy dynamic import so only the first chart pays the cost.
+let _plotlyPromise: Promise<PlotlyModule> | null = null;
+function getPlotly(): Promise<PlotlyModule> {
+  if (!_plotlyPromise) {
+    _plotlyPromise = import("plotly.js-dist-min").then((m) => m.default as PlotlyModule);
+  }
+  return _plotlyPromise;
+}
+
 export function PlotlyChart({ figure }: { figure: unknown }) {
   const container = useRef<HTMLDivElement>(null);
 
@@ -16,7 +25,7 @@ export function PlotlyChart({ figure }: { figure: unknown }) {
 
     const render = async () => {
       if (!container.current || !figure) return;
-      plotly = (await import("plotly.js-dist-min")).default as PlotlyModule;
+      plotly = await getPlotly();
 
       const fontColor = "#475569";
       const gridColor = "rgba(0, 0, 0, 0.06)";

@@ -40,7 +40,14 @@ def _json_value(value: Any) -> Any:
 
 
 def records_for_json(frame: pd.DataFrame) -> list[dict[str, Any]]:
-    return [_json_value(record) for record in frame.to_dict(orient="records")]
+    # Fast path: if every column is a simple JSON-safe type, skip the expensive
+    # per-cell _json_value walk and just convert NaN→None + to_dict directly.
+    _SIMPLE_KINDS = {"i", "u", "f", "b", "U", "O"}  # int, uint, float, bool, unicode, object
+    if all(dt.kind in _SIMPLE_KINDS for dt in frame.dtypes):
+        # astype(object) turns NaN/NaT into Python None which is JSON-serializable.
+        records = frame.astype(object).where(frame.notna(), other=None).to_dict(orient="records")  # type: ignore[arg-type]
+        return [{str(k): _json_value(v) for k, v in r.items()} for r in records]
+    return [{str(k): _json_value(v) for k, v in r.items()} for r in frame.to_dict(orient="records")]
 
 
 def safe_filename(name: str) -> str:
@@ -59,6 +66,10 @@ class Dataset:
     stage: str = "raw"
     parent_id: str | None = None
     operation: str | None = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.frame, pd.DataFrame):
+            self.frame.columns = [str(c) for c in self.frame.columns]
 
     def summary(self, active_id: str | None) -> DatasetSummary:
         return DatasetSummary(
@@ -120,6 +131,30 @@ class Workspace:
         self._undo_stack: list[str] = []
         self._redo_stack: list[Dataset] = []
         self._lock = threading.RLock()
+        self._load_uploads()
+
+    def _load_uploads(self) -> None:
+        if not UPLOADS_DIR.exists():
+            return
+        from data_agnets.tools.data_loader import auto_load_file
+        for p in sorted(UPLOADS_DIR.iterdir(), key=lambda f: f.stat().st_mtime):
+            if p.is_file() and "_" in p.name:
+                ds_id, orig_name = p.name.split("_", 1)
+                try:
+                    loaded = auto_load_file(str(p))
+                    if isinstance(loaded, pd.DataFrame):
+                        ds = Dataset(
+                            id=ds_id,
+                            name=Path(orig_name).stem,
+                            frame=loaded,
+                            source=f"upload · {orig_name}",
+                            path=p,
+                            created_at=p.stat().st_mtime,
+                        )
+                        self._datasets[ds_id] = ds
+                        self._active_dataset_id = ds_id
+                except Exception:
+                    pass
 
     def config(self) -> ConfigUpdate:
         with self._lock:
