@@ -110,6 +110,21 @@ export interface AppConfig {
   has_api_key: boolean;
   base_url: string | null;
   sql_url: string;
+  recursion_limit?: number;
+  enable_memory?: boolean;
+  proactive_mode?: boolean;
+  intent_parsing?: boolean;
+  include_studio_context?: boolean;
+  include_node_code?: boolean;
+  use_studio_node?: boolean;
+  sync_studio_state?: boolean;
+  mlflow_enabled?: boolean;
+  mlflow_tracking_uri?: string;
+  mlflow_artifact_root?: string;
+  mlflow_experiment_name?: string;
+  verbose_logs?: boolean;
+  show_progress_in_chat?: boolean;
+  show_live_logs?: boolean;
 }
 
 // Payload shape accepted by POST /api/agents/invoke.
@@ -126,4 +141,55 @@ export interface ConfigUpdateRequest {
   api_key?: string | null;
   base_url?: string | null;
   sql_url?: string;
+  recursion_limit?: number;
+  enable_memory?: boolean;
+  proactive_mode?: boolean;
+  intent_parsing?: boolean;
+  include_studio_context?: boolean;
+  include_node_code?: boolean;
+  use_studio_node?: boolean;
+  sync_studio_state?: boolean;
+  mlflow_enabled?: boolean;
+  mlflow_tracking_uri?: string;
+  mlflow_artifact_root?: string;
+  mlflow_experiment_name?: string;
+  verbose_logs?: boolean;
+  show_progress_in_chat?: boolean;
+  show_live_logs?: boolean;
 }
+
+export interface PipelineLineageNode {
+  id: string;
+  label?: string;
+  stage: string;
+  parent_id?: string | null;
+  parent_ids: string[];
+  shape?: [number, number] | null;
+  transform_kind?: string | null;
+  is_target?: boolean;
+  is_active?: boolean;
+}
+
+export interface PipelineSnapshot {
+  pipeline_hash: string | null;
+  target_dataset_id: string | null;
+  active_dataset_id: string | null;
+  target: string;
+  lineage: PipelineLineageNode[];
+  datasets: Dataset[];
+}
+
+export interface PipelineCompareResult {
+  node_a_id: string;
+  node_b_id: string;
+  shape_a: [number, number];
+  shape_b: [number, number];
+  added_columns: string[];
+  removed_columns: string[];
+  common_columns: string[];
+  dtype_changes: { column: string; dtype_a: string; dtype_b: string }[];
+  missingness_delta: { column: string; nulls_a: number; nulls_b: number; diff: number }[];
+  preview_a: Record<string, any>[];
+  preview_b: Record<string, any>[];
+}
+

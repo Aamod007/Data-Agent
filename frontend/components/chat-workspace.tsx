@@ -147,9 +147,21 @@ export function ChatWorkspace() {
     if (!prompt) return;
     if (run?.status === "running" || run?.status === "queued") return;
 
-    if (!activeDataset) {
-      setError("No dataset selected. Please load a sample or select a dataset from the sidebar first.");
-      return;
+    let targetDataset = activeDataset;
+    if (!targetDataset) {
+      if (datasets.length > 0) {
+        targetDataset = datasets[0];
+        setActive(targetDataset.id);
+      } else {
+        try {
+          targetDataset = await api.loadSample("telco_churn");
+          const list = await api.datasets();
+          setDatasets(list);
+          setActive(targetDataset.id);
+        } catch {
+          // Fallback
+        }
+      }
     }
 
     setInstructions("");
@@ -163,7 +175,7 @@ export function ChatWorkspace() {
     try {
       const agentMode = autoRoute ? "analyst" : selectedAgent;
       const created = await api.invoke({
-        dataset_id: activeDataset.id,
+        dataset_id: targetDataset?.id || "",
         instructions: prompt,
         agent: agentMode,
       });
@@ -278,26 +290,6 @@ export function ChatWorkspace() {
             Ask a question, run an analysis, or generate a visualization.
           </p>
 
-          {!activeDataset && (
-            <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className="button primary"
-                onClick={() => void loadQuickSample("bike_sales_data")}
-              >
-                <Sparkles size={13} />
-                <span>Load Bike Sales Sample</span>
-              </button>
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FileUp size={13} />
-                <span>Upload File</span>
-              </button>
-            </div>
-          )}
         </div>
       ) : (
         <div className="theme-stream-scroll">

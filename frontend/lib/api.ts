@@ -13,11 +13,13 @@ import type {
   DatasetProfile,
   InvokeAgentRequest,
   SampleDataset,
+  PipelineCompareResult,
+  PipelineSnapshot,
 } from "@/lib/types";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ||
-  (typeof window !== "undefined" ? "" : "http://127.0.0.1:8000");
+  (typeof window !== "undefined" ? "" : (process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8001"));
 
 class HttpError extends Error {
   status: number;
@@ -155,6 +157,56 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(update),
     });
+  },
+
+  // Pipeline Studio --------------------------------------------------------
+
+  async pipelineSnapshot(target: string = "model"): Promise<PipelineSnapshot> {
+    return request<PipelineSnapshot>(`/api/pipeline?target=${encodeURIComponent(target)}`);
+  },
+
+  async pipelineScript(targetId?: string): Promise<string> {
+    const url = `${API_BASE}/api/pipeline/script${targetId ? `?target_id=${encodeURIComponent(targetId)}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new HttpError(res.status, "Failed to fetch pipeline script");
+    return res.text();
+  },
+
+  async pipelineSpec(target: string = "model"): Promise<Record<string, any>> {
+    return request<Record<string, any>>(`/api/pipeline/spec?target=${encodeURIComponent(target)}`);
+  },
+
+  async pipelineRegistry(): Promise<Record<string, any>> {
+    return request<Record<string, any>>("/api/pipeline/registry");
+  },
+
+  async pipelineUndo(): Promise<Dataset | null> {
+    return request<Dataset | null>("/api/pipeline/undo", { method: "POST" });
+  },
+
+  async pipelineRedo(): Promise<Dataset | null> {
+    return request<Dataset | null>("/api/pipeline/redo", { method: "POST" });
+  },
+
+  async pipelineCompare(nodeA: string, nodeB: string): Promise<PipelineCompareResult> {
+    return request<PipelineCompareResult>(
+      `/api/pipeline/compare?node_a=${encodeURIComponent(nodeA)}&node_b=${encodeURIComponent(nodeB)}`
+    );
+  },
+
+  async runDraft(datasetId: string, code: string, stage: string = "custom"): Promise<Dataset> {
+    return request<Dataset>("/api/pipeline/run-draft", {
+      method: "POST",
+      body: JSON.stringify({ dataset_id: datasetId, code, stage }),
+    });
+  },
+
+  async deletePipelineNode(datasetId: string, clearHistory: boolean = false): Promise<void> {
+    return request<void>(
+      `/api/pipeline/nodes/${encodeURIComponent(datasetId)}?clear_history=${clearHistory}`,
+      { method: "DELETE" },
+      false,
+    );
   },
 };
 

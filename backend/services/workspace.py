@@ -84,9 +84,20 @@ class Workspace:
     def __init__(self) -> None:
         self._datasets: dict[str, Dataset] = {}
         self._active_dataset_id: str | None = None
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         nvidia_key = os.environ.get("NVIDIA_API_KEY")
         openai_key = os.environ.get("OPENAI_API_KEY")
-        if nvidia_key:
+        if openrouter_key:
+            self._config = ConfigUpdate(
+                provider="openrouter",
+                model="nvidia/nemotron-3-ultra-550b-a55b:free",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=openrouter_key,
+            )
+        elif nvidia_key:
             self._config = ConfigUpdate(
                 provider="nvidia",
                 model="meta/llama-3.2-11b-vision-instruct",
@@ -101,10 +112,13 @@ class Workspace:
             )
         else:
             self._config = ConfigUpdate(
-                provider="ollama",
-                model="llama3",
-                base_url="http://localhost:11434",
+                provider="openrouter",
+                model="nvidia/nemotron-3-ultra-550b-a55b:free",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=None,
             )
+        self._undo_stack: list[str] = []
+        self._redo_stack: list[Dataset] = []
         self._lock = threading.RLock()
 
     def config(self) -> ConfigUpdate:
@@ -116,6 +130,7 @@ class Workspace:
             if update.api_key is None:
                 update.api_key = (
                     self._config.api_key
+                    or os.environ.get("OPENROUTER_API_KEY")
                     or os.environ.get("NVIDIA_API_KEY")
                     or os.environ.get("OPENAI_API_KEY")
                 )
@@ -195,6 +210,7 @@ class Workspace:
         from data_agnets.tools.data_loader import auto_load_file
 
         samples_map = {
+            "telco_churn": ("telco_churn.csv", "Telco Customer Churn"),
             "bike_sales_data": ("bike_sales_data.csv", "Bike Sales Transactions"),
             "bike_model_specs": ("bike_model_specs.csv", "Bike Model Specifications"),
             "dirty_dataset": ("dirty_dataset.csv", "Dirty Dataset (Cleaning)"),
@@ -204,6 +220,8 @@ class Workspace:
 
         filename, label = samples_map[sample_name]
         sample_path = (REPO_ROOT / "data" / filename).resolve()
+        if not sample_path.exists():
+            sample_path = (REPO_ROOT / "apps" / "data" / filename).resolve()
         if not sample_path.exists():
             raise FileNotFoundError(f"Sample file not found at {sample_path}")
 
@@ -226,6 +244,7 @@ class Workspace:
 
     def list_samples(self) -> list[dict[str, str]]:
         return [
+            {"id": "telco_churn", "name": "Telco Customer Churn", "description": "Telco customer churn dataset with demographics, services, charges, and churn status."},
             {"id": "bike_sales_data", "name": "Bike Sales", "description": "15,644 bike sales records with date, customer, model, and revenue details."},
             {"id": "bike_model_specs", "name": "Bike Model Specs", "description": "Product catalog with model specifications, categories, and price."},
             {"id": "dirty_dataset", "name": "Dirty Dataset", "description": "Messy dataset with nulls, duplicates, and inconsistent casing for cleaning."},
@@ -246,7 +265,59 @@ class Workspace:
         with self._lock:
             self._datasets[dataset.id] = dataset
             self._active_dataset_id = dataset.id
+            self._undo_stack.append(dataset.id)
+            self._redo_stack.clear()
         return dataset
+
+    def undo(self) -> DatasetSummary | None:
+        with self._lock:
+            if not self._undo_stack:
+                return None
+            did = self._undo_stack.pop()
+            ds = self._datasets.pop(did, None)
+            if ds is None:
+                return None
+            self._redo_stack.append(ds)
+            if self._active_dataset_id == did:
+                self._active_dataset_id = ds.parent_id or (next(iter(self._datasets), None))
+            return self.get_dataset(self._active_dataset_id).summary(self._active_dataset_id) if self._active_dataset_id else None
+
+    def redo(self) -> DatasetSummary | None:
+        with self._lock:
+            if not self._redo_stack:
+                return None
+            ds = self._redo_stack.pop()
+            self._datasets[ds.id] = ds
+            self._undo_stack.append(ds.id)
+            self._active_dataset_id = ds.id
+            return ds.summary(self._active_dataset_id)
+
+    def to_pipeline_dict(self) -> dict[str, dict[str, Any]]:
+        with self._lock:
+            result: dict[str, dict[str, Any]] = {}
+            for did, ds in self._datasets.items():
+                result[did] = {
+                    "id": ds.id,
+                    "label": ds.name,
+                    "stage": ds.stage,
+                    "created_ts": ds.created_at,
+                    "parent_id": ds.parent_id,
+                    "parent_ids": [ds.parent_id] if ds.parent_id else [],
+                    "shape": (int(ds.frame.shape[0]), int(ds.frame.shape[1])),
+                    "schema": {str(col): str(dtype) for col, dtype in ds.frame.dtypes.items()},
+                    "provenance": {
+                        "source_type": "file" if ds.parent_id is None else "transform",
+                        "source": str(ds.path) if ds.path else ds.source,
+                        "original_name": ds.name,
+                        "transform": {
+                            "kind": ds.operation or ("load_file" if ds.parent_id is None else "python_function"),
+                            "function_code": ds.operation if (ds.operation and "def " in ds.operation) else None,
+                        } if ds.parent_id else {
+                            "kind": "load_file",
+                        },
+                    },
+                }
+            return result
 
     def list_datasets(self) -> list[DatasetSummary]:
         with self._lock:
@@ -288,12 +359,21 @@ class Workspace:
 
     @staticmethod
     def columns(frame: pd.DataFrame) -> list[dict[str, Any]]:
+        def _safe_nunique(s: pd.Series) -> int:
+            try:
+                return int(s.nunique(dropna=True))
+            except TypeError:
+                try:
+                    return int(s.astype(str).nunique(dropna=True))
+                except Exception:
+                    return 0
+
         return [
             {
                 "name": str(name),
                 "dtype": str(series.dtype),
                 "nulls": int(series.isna().sum()),
-                "unique": int(series.nunique(dropna=True)),
+                "unique": _safe_nunique(series),
             }
             for name, series in frame.items()
         ]
