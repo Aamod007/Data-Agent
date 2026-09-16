@@ -10,9 +10,14 @@ from __future__ import annotations
 import re
 import uuid
 import os
+import sys
 import json
 import inspect
 import shutil
+
+APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if APP_ROOT not in sys.path:
+    sys.path.insert(0, APP_ROOT)
 from openai import OpenAI
 import pandas as pd
 import sqlalchemy as sql
@@ -52,7 +57,6 @@ from data_agnets.ml_agents.model_evaluation_agent import ModelEvaluationAgent
 from data_agnets.multiagents.supervisor_ds_team import make_supervisor_ds_team
 from data_agnets.utils.pipeline import build_pipeline_snapshot
 
-APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TITLE = "AI Pipeline Studio"
 LOGO_PATH = os.path.join(APP_ROOT, "img", "ai_pipeline_studio_logo.png")
 page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else ":bar_chart:"
